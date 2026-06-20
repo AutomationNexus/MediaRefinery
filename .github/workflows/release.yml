@@ -1,0 +1,485 @@
+name: Release
+
+# Workflow registration: push to main / tags / manual dispatch.
+#   1. push to main         → tag v{project.version} from pyproject.toml, validate, build, publish
+#   2. push to v* tag       → use that tag, build, publish (no re-tagging, validation already done on main)
+#   3. workflow_dispatch    → manual rebuild of an existing tag (e.g. to regenerate the image)
+#
+# Uses only GITHUB_TOKEN — no PAT/RELEASE_TOKEN required.
+
+on:
+  push:
+    branches: [main]
+    tags: ["v*.*.*"]
+  workflow_dispatch:
+    inputs:
+      tag_name:
+        description: "Existing git tag to rebuild (e.g. v2.1.1)"
+        required: true
+        type: string
+      multi_arch:
+        description: "Build linux/amd64 + linux/arm64"
+        type: boolean
+        default: false
+
+permissions:
+  contents: write
+  packages: write
+  actions: read
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_NAME: automationnexus/mediarefinery
+  # ───────────────────────── Architecture toggle ─────────────────────────
+  # Released image is built for these platforms. Edit to flip arm64 on/off.
+  # The workflow_dispatch input `multi_arch=false` can override to amd64-only
+  # for a single rebuild without editing the workflow.
+  RELEASE_PLATFORMS: linux/amd64
+
+concurrency:
+  group: release-${{ github.workflow }}
+  cancel-in-progress: false
+
+jobs:
+  prepare:
+    name: Prepare Release Tag
+    runs-on: [self-hosted, Linux, X64]
+    # Skip the auto-version path if the commit was authored by the CI bot (defense in depth).
+    if: ${{ !(github.event_name == 'push' && startsWith(github.ref, 'refs/heads/') && github.event.head_commit.author.name == 'github-actions[bot]') }}
+    outputs:
+      tag_name: ${{ steps.resolve.outputs.tag_name }}
+      event_kind: ${{ steps.resolve.outputs.event_kind }}
+      is_prerelease: ${{ steps.resolve.outputs.is_prerelease }}
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - name: Configure git identity
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+      - name: Resolve tag based on trigger
+        id: resolve
+        run: |
+          set -e
+
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            TAG="${{ inputs.tag_name }}"
+            KIND="dispatch"
+            echo "Manual dispatch for existing tag: $TAG"
+
+          elif [ "${{ github.event_name }}" = "push" ] && [[ "${{ github.ref }}" == refs/tags/* ]]; then
+            TAG="${{ github.ref_name }}"
+            KIND="tag_push"
+            echo "Tag push detected: $TAG"
+
+          elif [ "${{ github.event_name }}" = "push" ] && [[ "${{ github.ref }}" == refs/heads/main ]]; then
+            # Tag from pyproject.toml — not auto-increment from git tags.
+            VERSION=$(python3 -c "import tomllib; print(tomllib.load(open('pyproject.toml','rb'))['project']['version'])")
+            if ! echo "$VERSION" | grep -qE '^[0-9]+\.[0-9]+\.[0-9]+[a-zA-Z0-9.]*$'; then
+              echo "pyproject.toml project.version must be a semver tag (got: $VERSION)"
+              exit 1
+            fi
+            TAG="v${VERSION}"
+            KIND="main_push"
+            MSG="${{ github.event.head_commit.message }}"
+            echo "Release version from pyproject.toml: $VERSION → $TAG"
+
+            if git rev-parse "$TAG" >/dev/null 2>&1; then
+              EXISTING=$(git rev-parse "$TAG^{commit}")
+              CURRENT=$(git rev-parse HEAD)
+              if [ "$EXISTING" = "$CURRENT" ]; then
+                echo "Tag $TAG already on HEAD — reusing for build/release"
+              else
+                echo "Tag $TAG exists on $EXISTING but HEAD is $CURRENT"
+                echo "Bump project.version in pyproject.toml before merging to main."
+                exit 1
+              fi
+            else
+              git tag -a "$TAG" -m "${MSG:0:72}"
+              git push origin "$TAG"
+              echo "Pushed tag: $TAG"
+            fi
+          else
+            echo "Unsupported trigger event: ${{ github.event_name }} ${{ github.ref }}"
+            exit 1
+          fi
+
+          if echo "$TAG" | grep -q '-'; then
+            PRE="true"
+          else
+            PRE="false"
+          fi
+
+          echo "tag_name=$TAG"           >> "$GITHUB_OUTPUT"
+          echo "event_kind=$KIND"         >> "$GITHUB_OUTPUT"
+          echo "is_prerelease=$PRE"       >> "$GITHUB_OUTPUT"
+          echo ""
+          echo "Resolved → tag=$TAG, kind=$KIND, prerelease=$PRE"
+
+  # Validation only runs on the main_push path.
+  verify-dev-ci:
+    name: Verify Dev CI
+    needs: prepare
+    if: needs.prepare.outputs.event_kind == 'main_push'
+    runs-on: [self-hosted, Linux, X64]
+    timeout-minutes: 5
+    outputs:
+      skip_validation: ${{ steps.check.outputs.skip_validation }}
+    steps:
+      - name: Check dev CI at same SHA
+        id: check
+        uses: actions/github-script@v8
+        with:
+          script: |
+            const sha = context.sha;
+            const { owner, repo } = context.repo;
+            const shasToCheck = new Set([sha]);
+
+            try {
+              const { data: commit } = await github.rest.repos.getCommit({ owner, repo, ref: sha });
+              for (const parent of commit.parents) {
+                shasToCheck.add(parent.sha);
+              }
+            } catch (error) {
+              core.info(`Could not load commit parents: ${error.message}`);
+            }
+
+            try {
+              const { data: devRef } = await github.rest.repos.getBranch({ owner, repo, branch: "dev" });
+              shasToCheck.add(devRef.commit.sha);
+            } catch (error) {
+              core.info(`Could not load dev branch tip: ${error.message}`);
+            }
+
+            const { data: workflows } = await github.rest.actions.listRepoWorkflows({ owner, repo });
+            const ci = workflows.workflows.find((w) => w.path === ".github/workflows/ci.yml");
+            if (!ci) {
+              core.info("CI workflow not found — running full release validation");
+              core.setOutput("skip_validation", "false");
+              return;
+            }
+
+            const { data } = await github.rest.actions.listWorkflowRuns({
+              owner,
+              repo,
+              workflow_id: ci.id,
+              branch: "dev",
+              status: "completed",
+              per_page: 30,
+            });
+
+            const match = data.workflow_runs.find(
+              (run) => run.conclusion === "success" && shasToCheck.has(run.head_sha)
+            );
+            if (match) {
+              core.info(
+                `Dev CI run ${match.id} succeeded at ${match.head_sha} (checked ${[...shasToCheck].join(", ")}) — skipping release validation`
+              );
+              core.setOutput("skip_validation", "true");
+            } else {
+              core.info(`No successful dev CI for SHAs ${[...shasToCheck].join(", ")} — running full release validation`);
+              core.setOutput("skip_validation", "false");
+            }
+
+  lint:
+    name: Lint
+    needs: [prepare, verify-dev-ci]
+    if: needs.prepare.outputs.event_kind == 'main_push' && needs.verify-dev-ci.outputs.skip_validation != 'true'
+    runs-on: [self-hosted, Linux, X64]
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.11"
+      - run: python -m venv .venv && .venv/bin/pip install -e ".[dev,service]" -q
+      - run: .venv/bin/python -m ruff check src tests tools
+
+  test-standards:
+    name: Test Standards
+    needs: [prepare, verify-dev-ci]
+    if: needs.prepare.outputs.event_kind == 'main_push' && needs.verify-dev-ci.outputs.skip_validation != 'true'
+    runs-on: [self-hosted, Linux, X64]
+    timeout-minutes: 3
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.11"
+      - run: python tests/check_test_standards.py
+
+  frontend:
+    name: Frontend
+    needs: [prepare, verify-dev-ci]
+    if: needs.prepare.outputs.event_kind == 'main_push' && needs.verify-dev-ci.outputs.skip_validation != 'true'
+    runs-on: [self-hosted, Linux, X64]
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v5
+        with:
+          node-version: "24"
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - working-directory: frontend
+        run: npm ci
+      - working-directory: frontend
+        run: npm audit
+      - working-directory: frontend
+        run: npm run typecheck
+      - working-directory: frontend
+        run: npm test
+      - name: Build SPA
+        working-directory: frontend
+        env:
+          VITE_APP_VERSION: ${{ needs.prepare.outputs.tag_name }}
+          VITE_APP_COMMIT_SHA: ${{ github.sha }}
+          VITE_APP_SOURCE_BRANCH: main
+        run: npm run build
+      - uses: actions/upload-artifact@v7
+        with:
+          name: spa-dist-${{ github.run_id }}
+          path: src/mediarefinery/web/
+          retention-days: 1
+
+  test:
+    name: Python Tests
+    needs: [prepare, verify-dev-ci, frontend]
+    if: needs.prepare.outputs.event_kind == 'main_push' && needs.verify-dev-ci.outputs.skip_validation != 'true'
+    runs-on: [self-hosted, Linux, X64]
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.11"
+      - uses: actions/download-artifact@v8
+        with:
+          name: spa-dist-${{ github.run_id }}
+          path: src/mediarefinery/web/
+      - run: python -m venv .venv && .venv/bin/pip install -e ".[dev,service]" -q
+      - run: >-
+          .venv/bin/python -m pytest
+          -m "not playwright"
+          --cov=mediarefinery
+          --cov-report=term-missing:skip-covered
+          --cov-report=json:tmp/coverage.json
+          --cov-fail-under=90
+      - run: .venv/bin/python tools/check_coverage.py --json tmp/coverage.json --minimum 90
+      - run: |
+          .venv/bin/python -m pytest \
+            tests/test_scan_privacy.py \
+            tests/test_reporter.py \
+            tests/test_state.py::test_error_records_redact_paths_secrets_and_media_like_values
+      - run: |
+          .venv/bin/python -m mediarefinery config validate --config templates/config.example.yml
+          .venv/bin/python -m mediarefinery config validate --config templates/config.preset.sensitive.example.yml
+          .venv/bin/python -m mediarefinery config validate --config tests/fixtures/config.custom-taxonomy.yml
+
+  e2e:
+    name: E2E Tests
+    needs: [prepare, verify-dev-ci, frontend]
+    if: needs.prepare.outputs.event_kind == 'main_push' && needs.verify-dev-ci.outputs.skip_validation != 'true'
+    runs-on: [self-hosted, Linux, X64]
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.11"
+      - name: Download SPA artifact
+        uses: actions/download-artifact@v8
+        with:
+          name: spa-dist-${{ github.run_id }}
+          path: src/mediarefinery/web/
+      - name: Install dependencies
+        run: pip install -e ".[dev,service]" -r requirements-dev-frontend.txt
+      - name: Install Chromium
+        run: bash tools/ci-install-chromium.sh
+      - name: Run E2E tests
+        run: python -m pytest tests/e2e_frontend -m playwright -v --tb=short
+      - name: Upload E2E coverage
+        uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: coverage-e2e-${{ github.run_id }}
+          path: coverage-e2e.xml
+          retention-days: 1
+
+  build-and-push:
+    name: Build & Push Docker Image
+    needs: [prepare, verify-dev-ci, lint, test-standards, frontend, test, e2e]
+    # Run if validation was successful (main_push) OR if validation was skipped (tag_push / dispatch).
+    if: |
+      always() &&
+      needs.prepare.result == 'success' &&
+      (needs.prepare.outputs.event_kind != 'main_push' ||
+       needs.verify-dev-ci.outputs.skip_validation == 'true' ||
+       (needs.lint.result == 'success' &&
+        needs.test-standards.result == 'success' &&
+        needs.frontend.result == 'success' &&
+        needs.test.result == 'success' &&
+        needs.e2e.result == 'success'))
+    runs-on: [self-hosted, Linux, X64]
+    timeout-minutes: 45
+    outputs:
+      image_digest: ${{ steps.build.outputs.digest }}
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: ${{ needs.prepare.outputs.tag_name }}
+          fetch-depth: 0
+
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v3
+        with:
+          platforms: arm64
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to GHCR
+        uses: docker/login-action@v4
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Resolve platforms
+        id: platforms
+        # Default to env.RELEASE_PLATFORMS (declared at workflow level).
+        # workflow_dispatch with multi_arch=false forces amd64-only for a manual rebuild.
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ] && [ "${{ inputs.multi_arch }}" = "false" ]; then
+            echo "value=linux/amd64" >> "$GITHUB_OUTPUT"
+          else
+            echo "value=${{ env.RELEASE_PLATFORMS }}" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Extract Docker metadata
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+          tags: |
+            type=raw,value=${{ needs.prepare.outputs.tag_name }}
+            type=semver,pattern={{major}}.{{minor}},value=${{ needs.prepare.outputs.tag_name }}
+            type=semver,pattern={{major}},value=${{ needs.prepare.outputs.tag_name }}
+            type=raw,value=latest,enable=${{ needs.prepare.outputs.is_prerelease == 'false' }}
+
+      - name: Build and push image
+        id: build
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          push: true
+          platforms: ${{ steps.platforms.outputs.value }}
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: |
+            ${{ steps.meta.outputs.labels }}
+            org.opencontainers.image.source=https://github.com/${{ github.repository }}
+          provenance: true
+          sbom: true
+
+  container-scan:
+    name: Container Scan (Trivy)
+    needs: [prepare, build-and-push]
+    runs-on: [self-hosted, Linux, X64]
+    timeout-minutes: 15
+    continue-on-error: true
+    steps:
+      - name: Log in to GHCR
+        uses: docker/login-action@v4
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Scan image with Trivy
+        uses: aquasecurity/trivy-action@master
+        with:
+          image-ref: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ needs.prepare.outputs.tag_name }}
+          format: json
+          output: trivy-report.json
+          severity: HIGH,CRITICAL
+          exit-code: "0"
+
+      - name: Upload Trivy report
+        uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: trivy-report-${{ github.run_id }}
+          path: trivy-report.json
+          retention-days: 1
+
+  publish-release:
+    name: Publish GitHub Release
+    needs: [prepare, build-and-push, container-scan]
+    if: always() && needs.build-and-push.result == 'success'
+    runs-on: [self-hosted, Linux, X64]
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: ${{ needs.prepare.outputs.tag_name }}
+          fetch-depth: 0
+
+      - name: Download Trivy report
+        uses: actions/download-artifact@v8
+        continue-on-error: true
+        with:
+          name: trivy-report-${{ github.run_id }}
+
+      - name: Build release body
+        id: body
+        run: |
+          TAG="${{ needs.prepare.outputs.tag_name }}"
+
+          if [ "${{ needs.prepare.outputs.is_prerelease }}" = "false" ]; then
+            DOCKER_REF="${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest"
+          else
+            DOCKER_REF="${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:$TAG"
+          fi
+
+          TRIVY_SUMMARY=""
+          if [ -f trivy-report.json ]; then
+            HIGH=$(python3 -c "import json; d=json.load(open('trivy-report.json')); v=[x for r in d.get('Results',[]) for x in r.get('Vulnerabilities',[]) if x.get('Severity')=='HIGH']; print(len(v))" 2>/dev/null || echo "?")
+            CRITICAL=$(python3 -c "import json; d=json.load(open('trivy-report.json')); v=[x for r in d.get('Results',[]) for x in r.get('Vulnerabilities',[]) if x.get('Severity')=='CRITICAL']; print(len(v))" 2>/dev/null || echo "?")
+            TRIVY_SUMMARY="**Container scan:** ${CRITICAL} CRITICAL, ${HIGH} HIGH vulnerabilities"
+          fi
+
+          {
+            echo "## Docker"
+            echo ""
+            echo '```'
+            echo "docker pull $DOCKER_REF"
+            echo '```'
+            echo ""
+            echo "**Image tags:**"
+            echo "- \`$TAG\` — exact version"
+            if [ "${{ needs.prepare.outputs.is_prerelease }}" = "false" ]; then
+              echo "- \`latest\` — latest stable"
+              echo "- \`v{major}.{minor}\` and \`v{major}\` floating aliases"
+            fi
+            echo "- Built for \`linux/amd64\` + \`linux/arm64\`"
+            echo ""
+            if [ -n "$TRIVY_SUMMARY" ]; then
+              echo "## Security"
+              echo "$TRIVY_SUMMARY"
+              echo ""
+            fi
+          } > release-body.md
+
+      - name: Create or update GitHub Release
+        uses: softprops/action-gh-release@v3
+        with:
+          tag_name: ${{ needs.prepare.outputs.tag_name }}
+          name: Release ${{ needs.prepare.outputs.tag_name }}
+          prerelease: ${{ needs.prepare.outputs.is_prerelease == 'true' }}
+          generate_release_notes: true
+          body_path: release-body.md
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

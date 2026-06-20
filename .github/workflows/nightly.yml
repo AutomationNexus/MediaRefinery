@@ -1,0 +1,317 @@
+name: Nightly Build
+
+# Builds the nightly Docker image from the dev branch HEAD.
+# Triggers on every push to dev (merge) and on a daily schedule.
+# Skips the schedule-triggered run when dev has not changed since the last nightly tag.
+# The floating "nightly" tag always points at the latest dev commit that was built.
+# Uses only GITHUB_TOKEN — no PAT/RELEASE_TOKEN required.
+
+on:
+  push:
+    branches: [dev]
+  schedule:
+    - cron: "0 2 * * *" # 02:00 UTC daily
+  workflow_dispatch:
+    inputs:
+      force_run:
+        description: "Build even if no new commits since last nightly"
+        type: boolean
+        required: false
+        default: false
+
+permissions:
+  contents: write
+  packages: write
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_NAME: automationnexus/mediarefinery
+  # ───────────────────────── Architecture toggle ─────────────────────────
+  # Nightly :nightly image is built for these platforms. Edit to flip arm64.
+  NIGHTLY_PLATFORMS: linux/amd64
+
+concurrency:
+  group: nightly-${{ github.workflow }}
+  cancel-in-progress: false
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  detect-changes:
+    name: Detect Changes on dev
+    runs-on: [self-hosted, Linux, X64]
+    outputs:
+      has_changes: ${{ steps.check.outputs.has_changes }}
+      target_sha: ${{ steps.check.outputs.target_sha }}
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: dev
+          fetch-depth: 0
+
+      - name: Compare dev HEAD to nightly tag
+        id: check
+        run: |
+          TARGET_SHA=$(git rev-parse HEAD)
+          NIGHTLY_SHA=$(git rev-parse "nightly" 2>/dev/null || echo "")
+
+          echo "dev HEAD:     $TARGET_SHA"
+          echo "nightly tag:  ${NIGHTLY_SHA:-<none>}"
+
+          if [ "${{ github.event_name }}" = "push" ]; then
+            echo "Push to dev — always building."
+            HAS_CHANGES=true
+          elif [ "${{ inputs.force_run }}" = "true" ]; then
+            echo "Force run requested — skipping change detection."
+            HAS_CHANGES=true
+          elif [ -z "$NIGHTLY_SHA" ] || [ "$TARGET_SHA" != "$NIGHTLY_SHA" ]; then
+            echo "Changes detected — proceeding."
+            HAS_CHANGES=true
+          else
+            echo "No changes since last nightly build — skipping."
+            HAS_CHANGES=false
+          fi
+
+          echo "has_changes=$HAS_CHANGES" >> "$GITHUB_OUTPUT"
+          echo "target_sha=$TARGET_SHA"   >> "$GITHUB_OUTPUT"
+
+  lint:
+    name: Lint
+    needs: detect-changes
+    if: needs.detect-changes.outputs.has_changes == 'true'
+    runs-on: [self-hosted, Linux, X64]
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: ${{ needs.detect-changes.outputs.target_sha }}
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.11"
+      - run: python -m venv .venv && .venv/bin/pip install -e ".[dev,service]" -q
+      - run: .venv/bin/python -m ruff check src tests tools
+
+  test-standards:
+    name: Test Standards
+    runs-on: [self-hosted, Linux, X64]
+    needs: detect-changes
+    if: needs.detect-changes.outputs.has_changes == 'true'
+    timeout-minutes: 3
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: ${{ needs.detect-changes.outputs.target_sha }}
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.11"
+      - run: python tests/check_test_standards.py
+
+  frontend:
+    name: Frontend
+    needs: detect-changes
+    if: needs.detect-changes.outputs.has_changes == 'true'
+    runs-on: [self-hosted, Linux, X64]
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: ${{ needs.detect-changes.outputs.target_sha }}
+      - uses: actions/setup-node@v5
+        with:
+          node-version: "24"
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - working-directory: frontend
+        run: npm ci
+      - working-directory: frontend
+        run: npm audit
+      - working-directory: frontend
+        run: npm run typecheck
+      - working-directory: frontend
+        run: npm test
+      - name: Build SPA
+        working-directory: frontend
+        env:
+          VITE_APP_VERSION: nightly
+          VITE_APP_COMMIT_SHA: ${{ needs.detect-changes.outputs.target_sha }}
+          VITE_APP_SOURCE_BRANCH: dev
+        run: npm run build
+      - uses: actions/upload-artifact@v7
+        with:
+          name: spa-dist-${{ github.run_id }}
+          path: src/mediarefinery/web/
+          retention-days: 1
+
+  test:
+    name: Python Tests
+    needs: [detect-changes, frontend]
+    if: needs.detect-changes.outputs.has_changes == 'true'
+    runs-on: [self-hosted, Linux, X64]
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: ${{ needs.detect-changes.outputs.target_sha }}
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.11"
+      - uses: actions/download-artifact@v8
+        with:
+          name: spa-dist-${{ github.run_id }}
+          path: src/mediarefinery/web/
+      - run: python -m venv .venv && .venv/bin/pip install -e ".[dev,service]" -q
+      - run: >-
+          .venv/bin/python -m pytest
+          -m "not playwright"
+          --cov=mediarefinery
+          --cov-report=term-missing:skip-covered
+          --cov-report=json:tmp/coverage.json
+          --cov-fail-under=90
+      - run: .venv/bin/python tools/check_coverage.py --json tmp/coverage.json --minimum 90
+      - run: |
+          .venv/bin/python -m pytest \
+            tests/test_scan_privacy.py \
+            tests/test_reporter.py \
+            tests/test_state.py::test_error_records_redact_paths_secrets_and_media_like_values
+      - run: |
+          .venv/bin/python -m mediarefinery config validate --config templates/config.example.yml
+          .venv/bin/python -m mediarefinery config validate --config templates/config.preset.sensitive.example.yml
+          .venv/bin/python -m mediarefinery config validate --config tests/fixtures/config.custom-taxonomy.yml
+
+  e2e:
+    name: E2E Tests
+    needs: [detect-changes, frontend]
+    if: needs.detect-changes.outputs.has_changes == 'true'
+    runs-on: [self-hosted, Linux, X64]
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: ${{ needs.detect-changes.outputs.target_sha }}
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.11"
+      - name: Download SPA artifact
+        uses: actions/download-artifact@v8
+        with:
+          name: spa-dist-${{ github.run_id }}
+          path: src/mediarefinery/web/
+      - name: Install dependencies
+        run: pip install -e ".[dev,service]" -r requirements-dev-frontend.txt
+      - name: Install Chromium
+        run: bash tools/ci-install-chromium.sh
+      - name: Run E2E tests
+        run: python -m pytest tests/e2e_frontend -m playwright -v --tb=short
+      - name: Upload E2E coverage
+        uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: coverage-e2e-${{ github.run_id }}
+          path: coverage-e2e.xml
+          retention-days: 1
+
+  move-tag:
+    name: Move nightly Tag
+    needs: [detect-changes, lint, test-standards, frontend, test, e2e]
+    if: |
+      always() &&
+      needs.detect-changes.outputs.has_changes == 'true' &&
+      needs.lint.result == 'success' &&
+      needs.test-standards.result == 'success' &&
+      needs.frontend.result == 'success' &&
+      needs.test.result == 'success' &&
+      needs.e2e.result == 'success'
+    runs-on: [self-hosted, Linux, X64]
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: dev
+          fetch-depth: 0
+
+      - name: Configure git identity
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+      - name: Force-update nightly tag
+        run: |
+          TARGET="${{ needs.detect-changes.outputs.target_sha }}"
+          git tag -f nightly "$TARGET"
+          git push origin nightly --force
+          echo "nightly tag moved to $TARGET"
+
+  build-and-push:
+    name: Build & Push Docker Image
+    needs: [detect-changes, move-tag]
+    if: needs.detect-changes.outputs.has_changes == 'true' && needs.move-tag.result == 'success'
+    runs-on: [self-hosted, Linux, X64]
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: ${{ needs.detect-changes.outputs.target_sha }}
+          fetch-depth: 0
+
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v3
+        with:
+          platforms: arm64
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to GHCR
+        uses: docker/login-action@v4
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and push nightly image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          push: true
+          platforms: ${{ env.NIGHTLY_PLATFORMS }}
+          tags: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:nightly
+          labels: |
+            org.opencontainers.image.title=MediaRefinery
+            org.opencontainers.image.description=Nightly build from dev branch
+            org.opencontainers.image.source=https://github.com/${{ github.repository }}
+            org.opencontainers.image.revision=${{ needs.detect-changes.outputs.target_sha }}
+          provenance: true
+          sbom: true
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+  container-scan:
+    name: Container Scan (Trivy)
+    needs: [build-and-push]
+    runs-on: [self-hosted, Linux, X64]
+    timeout-minutes: 15
+    continue-on-error: true
+    steps:
+      - name: Log in to GHCR
+        uses: docker/login-action@v4
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Scan nightly image with Trivy
+        uses: aquasecurity/trivy-action@master
+        with:
+          image-ref: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:nightly
+          format: json
+          output: trivy-report.json
+          severity: HIGH,CRITICAL
+          exit-code: "0"
+
+      - uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: trivy-report-nightly-${{ github.run_id }}
+          path: trivy-report.json
+          retention-days: 1

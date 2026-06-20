@@ -1,0 +1,6 @@
+# CODEOWNERS is optional. Uncomment and adjust when maintainers want
+# automatic review routing.
+#
+# * @your-org/mediarefinery-maintainers
+# /docs/ @your-org/docs
+# /.github/ @your-org/platform

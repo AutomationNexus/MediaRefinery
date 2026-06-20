@@ -1,0 +1,57 @@
+# Git
+.git
+.gitignore
+.github
+
+# Python build and caches
+__pycache__/
+**/__pycache__/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.venv/
+venv/
+*.pyc
+*.egg-info/
+dist/
+build/
+
+# Frontend build artifacts. node_modules is reinstalled inside the
+# frontend stage; dist (and the in-tree bundle) are regenerated there.
+frontend/node_modules/
+frontend/dist/
+
+# The runtime stage receives the freshly built bundle from the
+# frontend stage; never bake a stale local bundle into the image.
+src/mediarefinery/web/
+
+# Local secrets and env
+.env
+.env.*
+
+# Local runtime artifacts (image build should not bundle operator state)
+*.sqlite
+*.sqlite3
+*.db
+/data/
+/reports/
+/tmp/
+tmp/
+/models/
+
+# Tests, most docs, and planning are not needed inside the image.
+# The runtime stage copies docs/models as the curated model catalog.
+tests/
+docs/*
+!docs/models/
+!docs/models/**
+planning/
+
+# Local-only / collaborator files (also gitignored, but belt-and-braces)
+AGENTS.md
+CLAUDE.md
+.claude/
+.cursor/
+agents/
+plan.txt
+REPO_GAP_ANALYSIS.md

@@ -1,0 +1,80 @@
+site_name: MediaRefinery
+site_url: https://automationnexus.github.io/MediaRefinery/
+site_description: Local-first media triage companion for Immich with user-defined categories.
+repo_url: https://github.com/automationnexus/MediaRefinery
+repo_name: automationnexus/MediaRefinery
+edit_uri: edit/dev/docs/
+
+docs_dir: docs
+site_dir: site
+
+theme:
+  name: material
+  palette:
+    - scheme: default
+      primary: indigo
+      accent: indigo
+      toggle:
+        icon: material/brightness-7
+        name: Switch to dark mode
+    - scheme: slate
+      primary: indigo
+      accent: indigo
+      toggle:
+        icon: material/brightness-4
+        name: Switch to light mode
+  features:
+    - navigation.tabs
+    - navigation.tabs.sticky
+    - navigation.sections
+    - navigation.expand
+    - navigation.path
+    - navigation.top
+    - search.highlight
+    - search.suggest
+    - content.code.copy
+    - content.action.edit
+
+plugins:
+  - search
+
+markdown_extensions:
+  - admonition
+  - pymdownx.details
+  - pymdownx.superfences
+  - pymdownx.highlight:
+      anchor_linenums: true
+  - pymdownx.inlinehilite
+  - pymdownx.snippets
+  - pymdownx.tabbed:
+      alternate_style: true
+  - tables
+  - toc:
+      permalink: true
+
+nav:
+  - Home: README.md
+  - Getting Started:
+      - Installation: getting-started/installation.md
+  - Guides:
+      - Dashboard: guides/dashboard.md
+      - Models: guides/models.md
+  - Architecture:
+      - Service Architecture: architecture/ADR-0010-service-architecture.md
+  - Models:
+      - Overview: models/README.md
+  - Admin:
+      - Configuration: admin/configuration.md
+      - Operations: admin/operations.md
+      - Troubleshooting: admin/troubleshooting.md
+  - Reference:
+      - API: reference/api.md
+      - Immich API Compatibility: reference/immich-api-compat.md
+  - Security:
+      - Threat Model: security/threat-model.md
+  - Development:
+      - Local Development: development/local-development.md
+      - Repository Structure: development/repository-structure.md
+  - Releases:
+      - Release Checklist: releases/release-checklist.md
+      - Release Readiness Audit: releases/release-readiness-audit.md

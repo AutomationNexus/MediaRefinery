@@ -1,0 +1,7 @@
+(^|/)CLAUDE\.md$
+(^|/)AGENTS\.md$
+(^|/)\.mcp\.json$
+(^|/)\.claude/
+(^|/)\.cursorrules$
+(^|/)\.(cursor|windsurf|copilot|continuedev|codeium)/
+(^|/)\.aider

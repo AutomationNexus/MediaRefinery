@@ -1,0 +1,24 @@
+# Example for running the MediaRefinery service from the repository root:
+#   docker compose -f templates/docker-compose.example.yml up --build mediarefinery
+#
+# System settings (Immich URL, base URL, etc.) live in config.db on the /data
+# volume — set them after first boot via the dashboard or import-yaml.
+# See docs/getting-started/installation.md and docs/admin/configuration.md.
+
+services:
+  mediarefinery:
+    build:
+      context: ..
+      dockerfile: Dockerfile
+    image: mediarefinery:local
+    container_name: mediarefinery
+    restart: unless-stopped
+    ports:
+      - "8765:8765"
+    volumes:
+      - mediarefinery_config:/config
+      - mediarefinery_data:/data
+
+volumes:
+  mediarefinery_config:
+  mediarefinery_data:
