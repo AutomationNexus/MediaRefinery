@@ -466,7 +466,7 @@ class HttpImmichClient:
             timeout_seconds,
             DEFAULT_TIMEOUT_SECONDS,
         )
-        self._context = None if verify_tls else ssl._create_unverified_context()
+        self._context = None if verify_tls else ssl._create_unverified_context()  # nosec B323 - opt-in only when the operator explicitly sets verify_tls=False (e.g. self-signed Immich on a trusted LAN)
         self._urlopen = urlopen_func or urlopen
         self._sleep = sleep_func
         self._max_retries = max(0, int(max_retries))

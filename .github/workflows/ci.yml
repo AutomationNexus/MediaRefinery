@@ -207,14 +207,15 @@ jobs:
     name: Security Scans
     runs-on: [self-hosted, Linux, X64]
     timeout-minutes: 10
-    continue-on-error: true
     steps:
       - uses: actions/checkout@v6
       - uses: actions/setup-python@v6
         with:
           python-version: "3.11"
       - run: pip install bandit pip-audit
-      - run: bandit -r src/mediarefinery -f json -o bandit-report.json -ll || true
+      # Gate on bandit: any MEDIUM+ finding without a documented `# nosec` fails CI.
+      - run: bandit -r src/mediarefinery -ll -f json -o bandit-report.json
+      # pip-audit stays advisory — upstream CVEs are time-varying and should not block code PRs.
       - run: pip-audit --format json --output pip-audit.json || true
       - uses: actions/upload-artifact@v7
         if: always()

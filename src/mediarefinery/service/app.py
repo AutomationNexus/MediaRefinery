@@ -196,7 +196,7 @@ def run() -> None:
     uvicorn.run(
         "mediarefinery.service.app:create_app",
         factory=True,
-        host="0.0.0.0",
+        host="0.0.0.0",  # nosec B104 - binds all interfaces by design: runs inside a container; external ingress is fronted by the configured trusted proxies
         port=8080,
         forwarded_allow_ips=",".join(config.trusted_proxies) or None,
     )
