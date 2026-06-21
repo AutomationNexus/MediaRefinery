@@ -124,7 +124,7 @@ class _ImmichDoctorHttpClient:
         self._base_url = base_url
         self._api_key = api_key
         self._timeout_seconds = timeout_seconds
-        self._context = None if verify_tls else ssl._create_unverified_context()
+        self._context = None if verify_tls else ssl._create_unverified_context()  # nosec B323 - opt-in only when the operator explicitly sets verify_tls=False (e.g. self-signed Immich on a trusted LAN)
 
     def get_json(self, endpoint: str, *, authenticated: bool) -> _HttpProbeResult:
         """Return json.
@@ -147,7 +147,7 @@ class _ImmichDoctorHttpClient:
             method="GET",
         )
         try:
-            with urlopen(
+            with urlopen(  # nosec B310 - URL is built from the operator-configured Immich base_url (http/https API), not arbitrary user input
                 request,
                 timeout=self._timeout_seconds,
                 context=self._context,

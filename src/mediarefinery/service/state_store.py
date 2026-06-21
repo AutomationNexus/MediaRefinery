@@ -31,6 +31,7 @@ from pathlib import Path
 from typing import Any, cast
 
 from ..analysis import analysis_summary
+from ._sql import build_sql, sql_placeholders
 
 SERVICE_SCHEMA_VERSION = 6
 
@@ -927,16 +928,19 @@ class UserScopedState:
         }
 
         all_ids = [target_event_id, *clean_sources]
-        placeholders = ", ".join("?" for _ in all_ids)
+        placeholders = sql_placeholders(len(all_ids))
         self._conn.execute(
-            f"""
+            build_sql(
+                """
             UPDATE asset_event_memberships
                SET event_id = ?,
                    assignment_source = 'manual',
                    updated_at = CURRENT_TIMESTAMP
              WHERE user_id = ?
-               AND event_id IN ({placeholders})
-            """,
+               AND event_id IN (""",
+                placeholders,
+                ")",
+            ),
             (target_event_id, self._user_id, *all_ids),
         )
         self._conn.execute(
@@ -1001,15 +1005,18 @@ class UserScopedState:
         clean_asset_ids = _dedupe_event_ids(asset_ids)
         if not clean_asset_ids:
             raise ValueError("at least one asset is required")
-        placeholders = ", ".join("?" for _ in clean_asset_ids)
+        placeholders = sql_placeholders(len(clean_asset_ids))
         rows = self._conn.execute(
-            f"""
+            build_sql(
+                """
             SELECT asset_id
               FROM asset_event_memberships
              WHERE user_id = ?
                AND event_id = ?
-               AND asset_id IN ({placeholders})
-            """,
+               AND asset_id IN (""",
+                placeholders,
+                ")",
+            ),
             (self._user_id, event_id, *clean_asset_ids),
         ).fetchall()
         found = {str(row["asset_id"]) for row in rows}
@@ -1039,14 +1046,17 @@ class UserScopedState:
             ),
         )
         self._conn.execute(
-            f"""
+            build_sql(
+                """
             UPDATE asset_event_memberships
                SET event_id = ?,
                    assignment_source = 'manual',
                    updated_at = CURRENT_TIMESTAMP
              WHERE user_id = ?
-               AND asset_id IN ({placeholders})
-            """,
+               AND asset_id IN (""",
+                placeholders,
+                ")",
+            ),
             (new_event_id, self._user_id, *clean_asset_ids),
         )
         self._conn.commit()
@@ -1202,7 +1212,8 @@ class UserScopedState:
             clauses.append("eg.event_id = ?")
             params.append(event_id)
         params.append(page_size + 1)
-        sql = f"""
+        sql = build_sql(
+            """
             SELECT a.asset_id AS asset_id,
                    a.media_type AS media_type,
                    (SELECT action_name FROM actions
@@ -1228,10 +1239,13 @@ class UserScopedState:
                 ON eg.user_id = em.user_id
                AND eg.event_id = em.event_id
                AND eg.status NOT IN ('merged', 'reset')
-             WHERE {" AND ".join(clauses)}
+             WHERE """,
+            " AND ".join(clauses),
+            """
              ORDER BY a.asset_id ASC
              LIMIT ?
-        """
+        """,
+        )
         rows = self._conn.execute(
             sql,
             (self._user_id, self._user_id, *params),
@@ -1313,7 +1327,8 @@ class UserScopedState:
         if event_id:
             clauses.append("eg.event_id = ?")
             where_params.append(event_id)
-        sql = f"""
+        sql = build_sql(
+            """
             SELECT a.asset_id AS asset_id,
                    a.media_type AS media_type,
                    (SELECT action_name FROM actions
@@ -1339,8 +1354,9 @@ class UserScopedState:
                 ON eg.user_id = em.user_id
                AND eg.event_id = em.event_id
                AND eg.status NOT IN ('merged', 'reset')
-             WHERE {" AND ".join(clauses)}
-        """
+             WHERE """,
+            " AND ".join(clauses),
+        )
         rows = self._conn.execute(
             sql,
             (self._user_id, self._user_id, *where_params),
@@ -1977,7 +1993,8 @@ class UserScopedState:
             event_clause = " AND eg.event_id = ?"
             params.append(event_id)
         params.append(page_size + 1)
-        sql = f"""
+        sql = build_sql(
+            """
             SELECT a.asset_id AS asset_id,
                    a.media_type AS media_type,
                    (SELECT action_name FROM actions
@@ -2003,14 +2020,19 @@ class UserScopedState:
                 ON eg.user_id = em.user_id
                AND eg.event_id = em.event_id
                AND eg.status NOT IN ('merged', 'reset')
-             WHERE a.user_id = ?{cursor_clause}
+             WHERE a.user_id = ?""",
+            cursor_clause,
+            """
                AND EXISTS (
                    SELECT 1 FROM actions ax
                     WHERE ax.user_id = a.user_id AND ax.asset_id = a.asset_id
-               ){event_clause}
+               )""",
+            event_clause,
+            """
              ORDER BY a.asset_id ASC
              LIMIT ?
-        """
+        """,
+        )
         rows = self._conn.execute(sql, tuple(params)).fetchall()
         next_cursor: str | None = None
         if len(rows) > page_size:
