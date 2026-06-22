@@ -6,8 +6,8 @@ import subprocess
 import sys
 import types
 from pathlib import Path
-from urllib.error import HTTPError, URLError
 
+import httpx
 import pytest
 
 from mediarefinery import analysis as analysis_module
@@ -607,49 +607,33 @@ def test_onnx_backend_session_and_helper_edges(
         onnx_backend._load_onnx_dependencies()
 
 
-def test_doctor_probe_paths(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_doctor_probe_paths() -> None:
     """Test doctor probe paths."""
-    class Response:
-        status = 200
 
-        def read(self, size: int) -> bytes:
-            return b"{bad-json"
+    def _client(handler) -> doctor._ImmichDoctorHttpClient:
+        return doctor._ImmichDoctorHttpClient(
+            base_url="https://immich.example",
+            api_key="secret",
+            timeout_seconds=1,
+            verify_tls=True,
+            transport=httpx.MockTransport(handler),
+        )
 
-        def __enter__(self) -> Response:
-            return self
-
-        def __exit__(self, exc_type: object, exc: object, tb: object) -> None:
-            return None
-
-    requests = []
-
-    def fake_urlopen(request: object, **kwargs: object) -> Response:
-        requests.append(request)
-        return Response()
-
-    monkeypatch.setattr(doctor, "urlopen", fake_urlopen)
-    client = doctor._ImmichDoctorHttpClient(
-        base_url="https://immich.example",
-        api_key="secret",
-        timeout_seconds=1,
-        verify_tls=True,
-    )
-    result = client.get_json("/server/about", authenticated=True)
+    # 200 with a non-JSON body -> status 200, json_data None.
+    ok = _client(lambda request: httpx.Response(200, content=b"{bad-json"))
+    result = ok.get_json("/server/about", authenticated=True)
     assert result.status_code == 200
     assert result.json_data is None
-    assert requests
 
-    def raises_http(request: object, **kwargs: object) -> object:
-        raise HTTPError("https://immich.example", 403, "forbidden", {}, None)
+    # An HTTP error status is surfaced as the status code (httpx does not raise).
+    forbidden = _client(lambda request: httpx.Response(403))
+    assert forbidden.get_json("/server/about", authenticated=False).status_code == 403
 
-    monkeypatch.setattr(doctor, "urlopen", raises_http)
-    assert client.get_json("/server/about", authenticated=False).status_code == 403
+    # A network error -> network_failed.
+    def _offline(request: httpx.Request) -> httpx.Response:
+        raise httpx.ConnectError("offline")
 
-    def raises_url(request: object, **kwargs: object) -> object:
-        raise URLError("offline")
-
-    monkeypatch.setattr(doctor, "urlopen", raises_url)
-    assert client.get_json("/server/about", authenticated=False).network_failed
+    assert _client(_offline).get_json("/server/about", authenticated=False).network_failed
 
 
 def test_doctor_capability_and_auth_checks() -> None:

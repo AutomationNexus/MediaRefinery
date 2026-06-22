@@ -4,16 +4,15 @@ from __future__ import annotations
 import json
 import os
 import random
-import ssl
 from collections.abc import Callable, Mapping
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from pathlib import Path
 from time import monotonic, sleep
 from typing import Any, Protocol
-from urllib.error import HTTPError, URLError
 from urllib.parse import quote, urlencode, urlparse, urlunparse
-from urllib.request import Request, urlopen
+
+import httpx
 
 DEFAULT_API_KEY_ENV = "IMMICH_API_KEY"
 DEFAULT_TIMEOUT_SECONDS = 60.0
@@ -429,10 +428,11 @@ class HttpImmichClient:
         api_key: str,
         timeout_seconds: float = DEFAULT_TIMEOUT_SECONDS,
         verify_tls: bool = True,
+        ca_bundle: str | None = None,
         rate_limit_per_second: float | None = None,
         max_retries: int = DEFAULT_MAX_RETRIES,
         retry_backoff_seconds: float = DEFAULT_RETRY_BACKOFF_SECONDS,
-        urlopen_func: Callable[..., Any] | None = None,
+        transport: httpx.BaseTransport | None = None,
         sleep_func: Callable[[float], None] = sleep,
     ):
         """Initialize the instance.
@@ -443,10 +443,13 @@ class HttpImmichClient:
         api_key : str
         timeout_seconds : float, optional
         verify_tls : bool, optional
+        ca_bundle : str | None, optional
+            CA bundle path to verify against; takes precedence over ``verify_tls``.
         rate_limit_per_second : float | None, optional
         max_retries : int, optional
         retry_backoff_seconds : float, optional
-        urlopen_func : Callable[..., Any] | None, optional
+        transport : httpx.BaseTransport | None, optional
+            Injectable httpx transport (tests pass ``httpx.MockTransport``).
         sleep_func : Callable[[float], None], optional
         """
         if not base_url or not str(base_url).strip():
@@ -466,8 +469,10 @@ class HttpImmichClient:
             timeout_seconds,
             DEFAULT_TIMEOUT_SECONDS,
         )
-        self._context = None if verify_tls else ssl._create_unverified_context()  # nosec B323 - opt-in only when the operator explicitly sets verify_tls=False (e.g. self-signed Immich on a trusted LAN)
-        self._urlopen = urlopen_func or urlopen
+        # A CA-bundle path (verify against a custom CA) wins; otherwise True
+        # (default system trust) or False (explicit opt-in, unverified).
+        self._verify: str | bool = ca_bundle or verify_tls
+        self._transport = transport
         self._sleep = sleep_func
         self._max_retries = max(0, int(max_retries))
         self._retry_backoff_seconds = max(0.0, float(retry_backoff_seconds))
@@ -1024,45 +1029,33 @@ class HttpImmichClient:
         if authenticated:
             headers[IMMICH_API_KEY_HEADER] = self._api_key
 
-        request = Request(
-            _immich_api_url(self._base_url, endpoint, query=query),
-            data=data,
-            headers=headers,
-            method=method,
-        )
-
+        url = _immich_api_url(self._base_url, endpoint, query=query)
         attempts = self._max_retries + 1
-        for attempt in range(attempts):
-            self._pace_request()
-            try:
-                with self._urlopen(
-                    request,
-                    timeout=self._timeout_seconds,
-                    context=self._context,
-                ) as response:
-                    body: bytes = response.read()
-                    status_code = int(response.status)
-            except HTTPError as exc:
-                status_code = int(exc.code)
+        with httpx.Client(
+            verify=self._verify,
+            transport=self._transport,
+            timeout=self._timeout_seconds,
+        ) as client:
+            for attempt in range(attempts):
+                self._pace_request()
+                try:
+                    response = client.request(method, url, content=data, headers=headers)
+                except httpx.RequestError as exc:
+                    if attempt < attempts - 1:
+                        self._sleep_retry(attempt)
+                        continue
+                    raise ImmichClientError(
+                        "Immich HTTP request failed",
+                        error_code="network_unreachable",
+                    ) from exc
+
+                status_code = response.status_code
+                if status_code in expected:
+                    return response.content
                 if _should_retry(status_code) and attempt < attempts - 1:
                     self._sleep_retry(attempt)
                     continue
-                raise _http_error(status_code) from exc
-            except (OSError, TimeoutError, URLError) as exc:
-                if attempt < attempts - 1:
-                    self._sleep_retry(attempt)
-                    continue
-                raise ImmichClientError(
-                    "Immich HTTP request failed",
-                    error_code="network_unreachable",
-                ) from exc
-
-            if status_code in expected:
-                return body
-            if _should_retry(status_code) and attempt < attempts - 1:
-                self._sleep_retry(attempt)
-                continue
-            raise _http_error(status_code)
+                raise _http_error(status_code)
 
         raise ImmichClientError(
             "Immich HTTP request failed",
@@ -1091,62 +1084,48 @@ class HttpImmichClient:
         if authenticated:
             headers[IMMICH_API_KEY_HEADER] = self._api_key
 
-        request = Request(
-            _immich_api_url(self._base_url, endpoint, query=query),
-            data=data,
-            headers=headers,
-            method=method,
-        )
-
+        url = _immich_api_url(self._base_url, endpoint, query=query)
         attempts = self._max_retries + 1
-        for attempt in range(attempts):
-            _unlink_if_exists(destination)
-            self._pace_request()
-            try:
-                with self._urlopen(
-                    request,
-                    timeout=self._timeout_seconds,
-                    context=self._context,
-                ) as response:
-                    status_code = int(response.status)
-                    if status_code not in expected:
-                        if _should_retry(status_code) and attempt < attempts - 1:
-                            self._sleep_retry(attempt)
-                            continue
-                        raise _http_error(status_code)
-                    total = 0
-                    destination.parent.mkdir(parents=True, exist_ok=True)
-                    with destination.open("wb") as handle:
-                        while True:
-                            chunk: bytes = response.read(1024 * 1024)
-                            if not chunk:
-                                break
-                            total += len(chunk)
-                            if max_bytes is not None and total > max_bytes:
-                                raise ImmichClientError(
-                                    "Immich original asset exceeded configured size limit",
-                                    error_code="original_too_large",
-                                )
-                            handle.write(chunk)
-                    return total
-            except HTTPError as exc:
-                status_code = int(exc.code)
-                if _should_retry(status_code) and attempt < attempts - 1:
-                    self._sleep_retry(attempt)
-                    continue
-                raise _http_error(status_code) from exc
-            except ImmichClientError:
+        with httpx.Client(
+            verify=self._verify,
+            transport=self._transport,
+            timeout=self._timeout_seconds,
+        ) as client:
+            for attempt in range(attempts):
                 _unlink_if_exists(destination)
-                raise
-            except (OSError, TimeoutError, URLError) as exc:
-                _unlink_if_exists(destination)
-                if attempt < attempts - 1:
-                    self._sleep_retry(attempt)
-                    continue
-                raise ImmichClientError(
-                    "Immich HTTP request failed",
-                    error_code="network_unreachable",
-                ) from exc
+                self._pace_request()
+                try:
+                    with client.stream(method, url, content=data, headers=headers) as response:
+                        status_code = response.status_code
+                        if status_code not in expected:
+                            if _should_retry(status_code) and attempt < attempts - 1:
+                                self._sleep_retry(attempt)
+                                continue
+                            raise _http_error(status_code)
+                        total = 0
+                        destination.parent.mkdir(parents=True, exist_ok=True)
+                        with destination.open("wb") as handle:
+                            for chunk in response.iter_bytes(1024 * 1024):
+                                total += len(chunk)
+                                if max_bytes is not None and total > max_bytes:
+                                    raise ImmichClientError(
+                                        "Immich original asset exceeded configured size limit",
+                                        error_code="original_too_large",
+                                    )
+                                handle.write(chunk)
+                        return total
+                except ImmichClientError:
+                    _unlink_if_exists(destination)
+                    raise
+                except httpx.RequestError as exc:
+                    _unlink_if_exists(destination)
+                    if attempt < attempts - 1:
+                        self._sleep_retry(attempt)
+                        continue
+                    raise ImmichClientError(
+                        "Immich HTTP request failed",
+                        error_code="network_unreachable",
+                    ) from exc
 
         raise ImmichClientError(
             "Immich HTTP request failed",
@@ -1755,6 +1734,7 @@ def create_http_immich_client(
             DEFAULT_TIMEOUT_SECONDS,
         ),
         verify_tls=bool(immich.get("verify_tls", True)),
+        ca_bundle=(str(immich.get("ca_bundle")) if immich.get("ca_bundle") else None),
         rate_limit_per_second=_optional_float(
             (getattr(config, "runtime", {}) or {}).get("rate_limit_per_second")
         ),

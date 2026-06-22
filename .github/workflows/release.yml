@@ -43,7 +43,7 @@ concurrency:
 jobs:
   prepare:
     name: Prepare Release Tag
-    runs-on: [self-hosted, Linux, X64]
+    runs-on: ubuntu-latest
     # Skip the auto-version path if the commit was authored by the CI bot (defense in depth).
     if: ${{ !(github.event_name == 'push' && startsWith(github.ref, 'refs/heads/') && github.event.head_commit.author.name == 'github-actions[bot]') }}
     outputs:
@@ -124,7 +124,7 @@ jobs:
     name: Verify Dev CI
     needs: prepare
     if: needs.prepare.outputs.event_kind == 'main_push'
-    runs-on: [self-hosted, Linux, X64]
+    runs-on: ubuntu-latest
     timeout-minutes: 5
     outputs:
       skip_validation: ${{ steps.check.outputs.skip_validation }}
@@ -188,7 +188,7 @@ jobs:
     name: Lint
     needs: [prepare, verify-dev-ci]
     if: needs.prepare.outputs.event_kind == 'main_push' && needs.verify-dev-ci.outputs.skip_validation != 'true'
-    runs-on: [self-hosted, Linux, X64]
+    runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
       - uses: actions/checkout@v6
@@ -202,7 +202,7 @@ jobs:
     name: Test Standards
     needs: [prepare, verify-dev-ci]
     if: needs.prepare.outputs.event_kind == 'main_push' && needs.verify-dev-ci.outputs.skip_validation != 'true'
-    runs-on: [self-hosted, Linux, X64]
+    runs-on: ubuntu-latest
     timeout-minutes: 3
     steps:
       - uses: actions/checkout@v6
@@ -215,7 +215,7 @@ jobs:
     name: Frontend
     needs: [prepare, verify-dev-ci]
     if: needs.prepare.outputs.event_kind == 'main_push' && needs.verify-dev-ci.outputs.skip_validation != 'true'
-    runs-on: [self-hosted, Linux, X64]
+    runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
       - uses: actions/checkout@v6
@@ -249,7 +249,7 @@ jobs:
     name: Python Tests
     needs: [prepare, verify-dev-ci, frontend]
     if: needs.prepare.outputs.event_kind == 'main_push' && needs.verify-dev-ci.outputs.skip_validation != 'true'
-    runs-on: [self-hosted, Linux, X64]
+    runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
       - uses: actions/checkout@v6
@@ -283,7 +283,7 @@ jobs:
     name: E2E Tests
     needs: [prepare, verify-dev-ci, frontend]
     if: needs.prepare.outputs.event_kind == 'main_push' && needs.verify-dev-ci.outputs.skip_validation != 'true'
-    runs-on: [self-hosted, Linux, X64]
+    runs-on: ubuntu-latest
     timeout-minutes: 25
     steps:
       - uses: actions/checkout@v6
@@ -323,7 +323,7 @@ jobs:
         needs.frontend.result == 'success' &&
         needs.test.result == 'success' &&
         needs.e2e.result == 'success'))
-    runs-on: [self-hosted, Linux, X64]
+    runs-on: ubuntu-latest
     timeout-minutes: 45
     outputs:
       image_digest: ${{ steps.build.outputs.digest }}
@@ -387,7 +387,7 @@ jobs:
   container-scan:
     name: Container Scan (Trivy)
     needs: [prepare, build-and-push]
-    runs-on: [self-hosted, Linux, X64]
+    runs-on: ubuntu-latest
     timeout-minutes: 15
     continue-on-error: true
     steps:
@@ -419,7 +419,7 @@ jobs:
     name: Publish GitHub Release
     needs: [prepare, build-and-push, container-scan]
     if: always() && needs.build-and-push.result == 'success'
-    runs-on: [self-hosted, Linux, X64]
+    runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
       - uses: actions/checkout@v6

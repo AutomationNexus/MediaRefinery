@@ -16,7 +16,7 @@ from . import auto_scan as _auto_scan
 from . import model_catalog as _catalog
 from . import production as _production
 from .classifier_cache import ClassifierSessionCache
-from .config import ServiceConfig, load_service_config
+from .config import ServiceConfig, load_service_config, warn_if_exposed
 from .security import (
     AesGcmCipher,
     InMemoryRateLimiter,
@@ -193,11 +193,12 @@ def run() -> None:
     import uvicorn
 
     config = load_service_config()
+    warn_if_exposed(config.bind_host)
     uvicorn.run(
         "mediarefinery.service.app:create_app",
         factory=True,
-        host="0.0.0.0",  # nosec B104 - binds all interfaces by design: runs inside a container; external ingress is fronted by the configured trusted proxies
-        port=8080,
+        host=config.bind_host,
+        port=config.bind_port,
         forwarded_allow_ips=",".join(config.trusted_proxies) or None,
     )
 

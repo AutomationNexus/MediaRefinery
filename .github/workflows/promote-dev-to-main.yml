@@ -14,7 +14,7 @@ concurrency:
 jobs:
   promote:
     name: Promote dev → main
-    runs-on: [self-hosted, Linux, X64]
+    runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
       - name: Require green dev CI

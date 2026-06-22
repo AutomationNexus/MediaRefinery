@@ -52,6 +52,7 @@ integration:
     api_key_env: "IMMICH_API_KEY"  # set in real env, never commit value
     timeout_seconds: 60
     verify_tls: true
+    # ca_bundle: "/data/certs/immich-ca.pem"  # verify against a custom/self-signed CA (preferred over verify_tls: false)
     page_size: 100
 
 scanner:
