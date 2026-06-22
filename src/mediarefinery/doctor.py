@@ -111,6 +111,7 @@ class _ImmichDoctorHttpClient:
         timeout_seconds: float,
         verify_tls: bool,
         ca_bundle: str | None = None,
+        transport: httpx.BaseTransport | None = None,
     ):
         """Initialize the instance.
 
@@ -124,6 +125,8 @@ class _ImmichDoctorHttpClient:
             Path to a CA bundle to verify against; takes precedence over
             ``verify_tls`` so an operator can pin a self-signed cert instead of
             disabling verification.
+        transport : httpx.BaseTransport or None, optional
+            Injectable httpx transport (tests pass ``httpx.MockTransport``).
         """
         self._base_url = base_url
         self._api_key = api_key
@@ -131,6 +134,7 @@ class _ImmichDoctorHttpClient:
         # A CA-bundle path (verify against a custom CA) wins; otherwise True
         # (default system trust) or False (explicit opt-in, unverified).
         self._verify: str | bool = ca_bundle or verify_tls
+        self._transport = transport
 
     def get_json(self, endpoint: str, *, authenticated: bool) -> _HttpProbeResult:
         """Return json.
@@ -149,7 +153,9 @@ class _ImmichDoctorHttpClient:
             headers["x-api-key"] = self._api_key
         url = _immich_api_url(self._base_url, endpoint)
         try:
-            with httpx.Client(verify=self._verify, timeout=self._timeout_seconds) as client:
+            with httpx.Client(
+                verify=self._verify, transport=self._transport, timeout=self._timeout_seconds
+            ) as client:
                 response = client.get(url, headers=headers)
         except httpx.HTTPError:
             return _HttpProbeResult(status_code=None, error_code="network_unreachable")
