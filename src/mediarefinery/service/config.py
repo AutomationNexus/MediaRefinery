@@ -9,9 +9,13 @@ The encryption master key is resolved from ``/data/master.key`` in
 
 from __future__ import annotations
 
+import os
+import sys
 from dataclasses import dataclass, field
 from pathlib import Path
 
+DEFAULT_BIND_HOST = "0.0.0.0"  # nosec B104 - binds all interfaces by design (containerized service; operator overrides via system.bind_host)
+_LOOPBACK_HOSTS = frozenset({"127.0.0.1", "::1", "localhost"})
 DEFAULT_PORT = 8080
 DEFAULT_SESSION_TTL_SECONDS = 12 * 60 * 60  # 12h sliding
 DEFAULT_REVALIDATE_INTERVAL_SECONDS = 5 * 60  # 5min cap on Immich /users/me hits
@@ -83,6 +87,8 @@ class ServiceConfig:
     demo_mode : bool
     auto_scan_enabled : bool
     state_db_path_override : Path | None
+    bind_host : str
+    bind_port : int
     media_sampling : MediaSamplingConfig
     ocr : OcrConfig
     """
@@ -98,6 +104,8 @@ class ServiceConfig:
     demo_mode: bool = False
     auto_scan_enabled: bool = False
     state_db_path_override: Path | None = None
+    bind_host: str = DEFAULT_BIND_HOST
+    bind_port: int = DEFAULT_PORT
     media_sampling: MediaSamplingConfig = field(default_factory=MediaSamplingConfig)
     ocr: OcrConfig = field(default_factory=OcrConfig)
 
@@ -135,6 +143,40 @@ def load_service_config(
     return load_system_config(
         data_dir,
         state_db_path_override=state_db_path_override,
+    )
+
+
+def _in_container() -> bool:
+    """Return True on a best-effort container check (Docker/Podman/k8s)."""
+    if os.path.exists("/.dockerenv") or os.path.exists("/run/.containerenv"):
+        return True
+    try:
+        with open("/proc/1/cgroup", encoding="utf-8") as fh:
+            data = fh.read()
+    except OSError:
+        return False
+    return "docker" in data or "kubepods" in data or "containerd" in data
+
+
+def warn_if_exposed(host: str) -> None:
+    """Warn on stderr when binding a non-loopback host outside a container.
+
+    A containerized service binding ``0.0.0.0`` is normal (the container is the
+    isolation boundary), so this stays silent there. Only a bare host process
+    bound off-loopback — reachable from the network — triggers the warning.
+
+    Parameters
+    ----------
+    host : str
+        The host/interface the server is about to bind.
+    """
+    if host in _LOOPBACK_HOSTS or _in_container():
+        return
+    print(
+        f"[mediarefinery] WARNING: binding {host} exposes the service on a "
+        "non-loopback interface outside a container. Put it behind a reverse "
+        "proxy, or bind 127.0.0.1 and use an SSH tunnel, unless this is intentional.",
+        file=sys.stderr,
     )
 
 

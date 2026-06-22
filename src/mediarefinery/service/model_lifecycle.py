@@ -27,6 +27,7 @@ from typing import Any, cast
 
 import httpx
 
+from ._sql import build_sql, sql_placeholders
 from .model_catalog import (
     BINARY_SAFETY_LABELS,
     MODEL_TASK_ADULT_SUBTYPE,
@@ -569,8 +570,11 @@ def _set_active(
     )
     with conn:
         conn.execute(
-            "UPDATE model_registry SET active = 0 "
-            f"WHERE active_slot IN ({','.join('?' for _ in slots)})",
+            build_sql(
+                "UPDATE model_registry SET active = 0 WHERE active_slot IN (",
+                sql_placeholders(len(slots)),
+                ")",
+            ),
             slots,
         )
         conn.execute(

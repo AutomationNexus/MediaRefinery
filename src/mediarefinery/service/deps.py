@@ -114,7 +114,7 @@ def client_ip(request: Request, config: ServiceConfig) -> str:
     own address is returned. Avoids the common bug of trusting
     arbitrary forwarded headers from untrusted clients.
     """
-    peer = request.client.host if request.client else "0.0.0.0"
+    peer = request.client.host if request.client else "0.0.0.0"  # nosec B104 - fallback sentinel for an unknown peer IP, not a socket bind address
     if peer in config.trusted_proxies:
         forwarded = request.headers.get("x-forwarded-for")
         if forwarded:
