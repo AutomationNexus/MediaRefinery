@@ -4,6 +4,7 @@ import json
 from datetime import UTC
 from urllib.parse import parse_qs, urlparse
 
+import httpx
 import pytest
 
 from mediarefinery.config import load_config
@@ -196,7 +197,7 @@ def test_mock_immich_can_override_preview_bytes_per_asset() -> None:
 
 def test_http_immich_server_probes_use_auth_only_when_needed() -> None:
     """Test http immich server probes use auth only when needed."""
-    transport = _FakeUrlOpen(
+    transport = _FakeTransport(
         [
             (200, {"res": "pong"}),
             (200, {"major": 2, "minor": 7, "patch": 5}),
@@ -223,7 +224,7 @@ def test_http_immich_server_probes_use_auth_only_when_needed() -> None:
 
 def test_http_immich_lists_assets_with_search_metadata() -> None:
     """Test http immich lists assets with search metadata."""
-    transport = _FakeUrlOpen(
+    transport = _FakeTransport(
         [
             (
                 200,
@@ -259,11 +260,11 @@ def test_http_immich_lists_assets_with_search_metadata() -> None:
 
     request = transport.requests[0]
     body = _json_body(request)
-    assert request.get_method() == "POST"
+    assert request.method == "POST"
     assert _path(request) == "/api/search/metadata"
     assert _query(request) == {}
     assert _header(request, "x-api-key") == "test-secret"
-    assert "test-secret" not in request.full_url
+    assert "test-secret" not in str(request.url)
     assert body["page"] == 1
     assert body["size"] == 50
     assert body["type"] == "IMAGE"
@@ -286,7 +287,7 @@ def test_http_immich_lists_assets_with_search_metadata() -> None:
 
 def test_http_immich_safely_flattens_rich_asset_metadata() -> None:
     """Test http immich safely flattens rich asset metadata."""
-    transport = _FakeUrlOpen(
+    transport = _FakeTransport(
         [
             (
                 200,
@@ -341,7 +342,7 @@ def test_http_immich_safely_flattens_rich_asset_metadata() -> None:
 
 def test_http_immich_smart_search_uses_documented_endpoint() -> None:
     """Test http immich smart search uses documented endpoint."""
-    transport = _FakeUrlOpen(
+    transport = _FakeTransport(
         [
             (
                 200,
@@ -366,7 +367,7 @@ def test_http_immich_smart_search_uses_documented_endpoint() -> None:
 
     request = transport.requests[0]
     body = _json_body(request)
-    assert request.get_method() == "POST"
+    assert request.method == "POST"
     assert _path(request) == "/api/search/smart"
     assert _header(request, "x-api-key") == "test-secret"
     assert body["query"] == "vacation in snow"
@@ -382,7 +383,7 @@ def test_http_immich_smart_search_uses_documented_endpoint() -> None:
 
 def test_http_immich_gets_metadata_through_search_without_private_paths() -> None:
     """Test http immich gets metadata through search without private paths."""
-    transport = _FakeUrlOpen(
+    transport = _FakeTransport(
         [
             (
                 200,
@@ -429,37 +430,37 @@ def test_http_immich_gets_metadata_through_search_without_private_paths() -> Non
 
 def test_http_immich_downloads_preview_thumbnail_bytes() -> None:
     """Test http immich downloads preview thumbnail bytes."""
-    transport = _FakeUrlOpen([(200, b"preview-bytes")])
+    transport = _FakeTransport([(200, b"preview-bytes")])
     client = _http_client(transport)
 
     preview_bytes = client.get_preview_bytes("asset-1")
 
     request = transport.requests[0]
     assert preview_bytes == b"preview-bytes"
-    assert request.get_method() == "GET"
+    assert request.method == "GET"
     assert _path(request) == "/api/assets/asset-1/thumbnail"
     assert _query(request) == {"size": ["preview"]}
     assert _header(request, "x-api-key") == "test-secret"
-    assert "test-secret" not in request.full_url
+    assert "test-secret" not in str(request.url)
 
 
 def test_http_immich_downloads_original_asset_bytes() -> None:
     """Test http immich downloads original asset bytes."""
-    transport = _FakeUrlOpen([(200, b"original-bytes")])
+    transport = _FakeTransport([(200, b"original-bytes")])
     client = _http_client(transport)
 
     original_bytes = client.download_asset_bytes("asset-1")
 
     request = transport.requests[0]
     assert original_bytes == b"original-bytes"
-    assert request.get_method() == "GET"
+    assert request.method == "GET"
     assert _path(request) == "/api/assets/asset-1/original"
     assert _header(request, "x-api-key") == "test-secret"
 
 
 def test_http_immich_streams_original_asset_to_file(tmp_path) -> None:
     """Test http immich streams original asset to file."""
-    transport = _FakeUrlOpen([(200, b"original-bytes")])
+    transport = _FakeTransport([(200, b"original-bytes")])
     client = _http_client(transport)
     destination = tmp_path / "original.media"
 
@@ -468,14 +469,14 @@ def test_http_immich_streams_original_asset_to_file(tmp_path) -> None:
     request = transport.requests[0]
     assert written == len(b"original-bytes")
     assert destination.read_bytes() == b"original-bytes"
-    assert request.get_method() == "GET"
+    assert request.method == "GET"
     assert _path(request) == "/api/assets/asset-1/original"
     assert _header(request, "x-api-key") == "test-secret"
 
 
 def test_http_immich_original_file_download_enforces_byte_limit(tmp_path) -> None:
     """Test http immich original file download enforces byte limit."""
-    transport = _FakeUrlOpen([(200, b"too-large")])
+    transport = _FakeTransport([(200, b"too-large")])
     client = _http_client(transport)
     destination = tmp_path / "original.media"
 
@@ -488,7 +489,7 @@ def test_http_immich_original_file_download_enforces_byte_limit(tmp_path) -> Non
 
 def test_http_immich_finds_creates_and_adds_to_review_album() -> None:
     """Test http immich finds creates and adds to review album."""
-    transport = _FakeUrlOpen(
+    transport = _FakeTransport(
         [
             (
                 200,
@@ -513,7 +514,7 @@ def test_http_immich_finds_creates_and_adds_to_review_album() -> None:
     assert client.create_album("New Review") == "album-2"
     client.add_to_album("album-2", ["asset-1", "asset-2"])
 
-    assert [request.get_method() for request in transport.requests] == [
+    assert [request.method for request in transport.requests] == [
         "GET",
         "POST",
         "PUT",
@@ -529,7 +530,7 @@ def test_http_immich_finds_creates_and_adds_to_review_album() -> None:
 
 def test_http_immich_add_to_album_failure_is_sanitized() -> None:
     """Test http immich add to album failure is sanitized."""
-    transport = _FakeUrlOpen(
+    transport = _FakeTransport(
         [(200, [{"id": "asset-1", "success": False, "error": "no_permission"}])]
     )
     client = _http_client(transport)
@@ -543,7 +544,7 @@ def test_http_immich_add_to_album_failure_is_sanitized() -> None:
 
 def test_http_immich_finds_creates_and_adds_tag() -> None:
     """Test http immich finds creates and adds tag."""
-    transport = _FakeUrlOpen(
+    transport = _FakeTransport(
         [
             (
                 200,
@@ -562,7 +563,7 @@ def test_http_immich_finds_creates_and_adds_tag() -> None:
     assert client.create_tag("New Review") == "tag-2"
     client.add_tag_to_asset("asset-1", "tag-2")
 
-    assert [request.get_method() for request in transport.requests] == [
+    assert [request.method for request in transport.requests] == [
         "GET",
         "POST",
         "PUT",
@@ -578,12 +579,12 @@ def test_http_immich_finds_creates_and_adds_tag() -> None:
         _header(request, "x-api-key") == "test-secret"
         for request in transport.requests
     )
-    assert all("test-secret" not in request.full_url for request in transport.requests)
+    assert all("test-secret" not in str(request.url) for request in transport.requests)
 
 
 def test_http_immich_create_or_get_tag_reuses_existing_value() -> None:
     """Test http immich create or get tag reuses existing value."""
-    transport = _FakeUrlOpen(
+    transport = _FakeTransport(
         [
             (
                 200,
@@ -602,13 +603,13 @@ def test_http_immich_create_or_get_tag_reuses_existing_value() -> None:
     assert client.create_or_get_tag("parent/review") == "tag-1"
 
     assert len(transport.requests) == 1
-    assert transport.requests[0].get_method() == "GET"
+    assert transport.requests[0].method == "GET"
     assert _path(transport.requests[0]) == "/api/tags"
 
 
 def test_http_immich_add_tag_failure_is_sanitized() -> None:
     """Test http immich add tag failure is sanitized."""
-    transport = _FakeUrlOpen(
+    transport = _FakeTransport(
         [
             (
                 200,
@@ -635,9 +636,9 @@ def test_http_immich_add_tag_failure_is_sanitized() -> None:
 
 def test_http_immich_tag_invalid_responses_fail_closed() -> None:
     """Test http immich tag invalid responses fail closed."""
-    find_transport = _FakeUrlOpen([(200, {"tags": []})])
-    create_transport = _FakeUrlOpen([(201, {"name": "review"})])
-    add_transport = _FakeUrlOpen([(200, {"id": "asset-1", "success": True})])
+    find_transport = _FakeTransport([(200, {"tags": []})])
+    create_transport = _FakeTransport([(201, {"name": "review"})])
+    add_transport = _FakeTransport([(200, {"id": "asset-1", "success": True})])
 
     with pytest.raises(ImmichClientError) as find_exc:
         _http_client(find_transport).find_tag_by_name("review")
@@ -653,7 +654,7 @@ def test_http_immich_tag_invalid_responses_fail_closed() -> None:
 
 def test_http_immich_real_adapter_supports_tags_and_keeps_archive_unsupported() -> None:
     """Test http immich real adapter supports tags and keeps archive unsupported."""
-    transport = _FakeUrlOpen([])
+    transport = _FakeTransport([])
     client = _http_client(transport)
 
     assert client.capabilities.albums is True
@@ -704,46 +705,46 @@ def test_http_immich_edge_responses_and_helpers(tmp_path) -> None:
         HttpImmichClient(base_url="http://immich.invalid", api_key="")
 
     with pytest.raises(ImmichClientError) as list_exc:
-        _http_client(_FakeUrlOpen([(200, {"assets": {"items": "bad"}})])).list_assets()
+        _http_client(_FakeTransport([(200, {"assets": {"items": "bad"}})])).list_assets()
     assert list_exc.value.error_code == "invalid_asset_search_response"
     with pytest.raises(KeyError):
-        _http_client(_FakeUrlOpen([(200, {"assets": {"items": []}})])).get_metadata("missing")
-    assert _http_client(_FakeUrlOpen([])).smart_search("   ") == ([], None)
+        _http_client(_FakeTransport([(200, {"assets": {"items": []}})])).get_metadata("missing")
+    assert _http_client(_FakeTransport([])).smart_search("   ") == ([], None)
 
-    album_client = _http_client(_FakeUrlOpen([(200, {"albums": []})]))
+    album_client = _http_client(_FakeTransport([(200, {"albums": []})]))
     with pytest.raises(ImmichClientError):
         album_client.find_album_by_name("Review")
     with pytest.raises(ImmichClientError):
-        _http_client(_FakeUrlOpen([(201, {"albumName": "Review"})])).create_album("Review")
-    reuse_album = _http_client(_FakeUrlOpen([(200, [{"id": "a1", "albumName": "Review"}])]))
+        _http_client(_FakeTransport([(201, {"albumName": "Review"})])).create_album("Review")
+    reuse_album = _http_client(_FakeTransport([(200, [{"id": "a1", "albumName": "Review"}])]))
     assert reuse_album.create_or_get_album("Review") == "a1"
     reuse_album.add_to_album("a1", [])
-    assert len(reuse_album._urlopen.requests) == 1
+    assert len(reuse_album._transport.requests) == 1
 
-    assert _http_client(_FakeUrlOpen([])).find_tag_by_name("   ") is None
+    assert _http_client(_FakeTransport([])).find_tag_by_name("   ") is None
     with pytest.raises(ImmichClientError):
-        _http_client(_FakeUrlOpen([])).create_tag("")
-    tag_client = _http_client(_FakeUrlOpen([]))
+        _http_client(_FakeTransport([])).create_tag("")
+    tag_client = _http_client(_FakeTransport([]))
     tag_client.add_tag_to_asset("", "tag-1")
-    assert tag_client._urlopen.requests == []
+    assert tag_client._transport.requests == []
 
-    visibility_client = _http_client(_FakeUrlOpen([(200, {})]))
+    visibility_client = _http_client(_FakeTransport([(200, {})]))
     visibility_client.set_asset_visibility("asset 1", "locked")
-    assert _path(visibility_client._urlopen.requests[0]) == "/api/assets/asset%201"
+    assert _path(visibility_client._transport.requests[0]) == "/api/assets/asset%201"
     with pytest.raises(ValueError):
         visibility_client.set_asset_visibility("", "locked")
     with pytest.raises(ValueError):
         visibility_client.set_asset_visibility("asset", "hidden")
 
     with pytest.raises(ImmichClientError) as json_exc:
-        _http_client(_FakeUrlOpen([(200, b"{bad")])).server_version()
+        _http_client(_FakeTransport([(200, b"{bad")])).server_version()
     assert json_exc.value.error_code == "invalid_json_response"
 
-    retry = _FakeUrlOpen([(500, {}), (200, {"ok": True})])
+    retry = _FakeTransport([(500, {}), (200, {"ok": True})])
     client = HttpImmichClient(
         base_url="https://immich.example.local",
         api_key="test-secret",
-        urlopen_func=retry,
+        transport=retry,
         max_retries=1,
         retry_backoff_seconds=0,
         sleep_func=lambda seconds: None,
@@ -752,9 +753,9 @@ def test_http_immich_edge_responses_and_helpers(tmp_path) -> None:
     assert len(retry.requests) == 2
 
     with pytest.raises(ValueError):
-        _http_client(_FakeUrlOpen([])).list_assets(page_token="x")
+        _http_client(_FakeTransport([])).list_assets(page_token="x")
     with pytest.raises(ValueError):
-        _http_client(_FakeUrlOpen([])).list_assets(page_token="0")
+        _http_client(_FakeTransport([])).list_assets(page_token="0")
 
     assert _immich_asset_type_filter({"video"}) == "VIDEO"
     assert _positive_int(False, 7) == 7
@@ -822,44 +823,24 @@ def test_mock_immich_edge_paths(tmp_path) -> None:
         client.set_asset_visibility("a", "bad")
 
 
-class _FakeResponse:
-    def __init__(self, status: int, body: object):
-        self.status = status
-        self._body = _response_body(body)
-        self._offset = 0
-
-    def read(self, size: int = -1) -> bytes:
-        if size is None or size < 0:
-            size = len(self._body) - self._offset
-        chunk = self._body[self._offset : self._offset + size]
-        self._offset += len(chunk)
-        return chunk
-
-    def __enter__(self) -> _FakeResponse:
-        return self
-
-    def __exit__(self, exc_type: object, exc: object, tb: object) -> None:
-        return None
-
-
-class _FakeUrlOpen:
+class _FakeTransport(httpx.BaseTransport):
     def __init__(self, responses: list[tuple[int, object]]):
         self._responses = list(responses)
-        self.requests = []
+        self.requests: list[httpx.Request] = []
 
-    def __call__(self, request, **kwargs):
+    def handle_request(self, request: httpx.Request) -> httpx.Response:
         self.requests.append(request)
         if not self._responses:
             raise AssertionError("unexpected HTTP request")
         status, body = self._responses.pop(0)
-        return _FakeResponse(status, body)
+        return httpx.Response(status, content=_response_body(body), request=request)
 
 
-def _http_client(transport: _FakeUrlOpen) -> HttpImmichClient:
+def _http_client(transport: _FakeTransport) -> HttpImmichClient:
     return HttpImmichClient(
         base_url="https://immich.example.local",
         api_key="test-secret",
-        urlopen_func=transport,
+        transport=transport,
         max_retries=0,
         retry_backoff_seconds=0,
     )
@@ -872,19 +853,16 @@ def _response_body(body: object) -> bytes:
 
 
 def _path(request) -> str:
-    return urlparse(request.full_url).path
+    return urlparse(str(request.url)).path
 
 
 def _query(request) -> dict[str, list[str]]:
-    return parse_qs(urlparse(request.full_url).query)
+    return parse_qs(urlparse(str(request.url)).query)
 
 
 def _json_body(request) -> dict:
-    return json.loads((request.data or b"{}").decode("utf-8"))
+    return json.loads(request.content or b"{}")
 
 
 def _header(request, name: str) -> str | None:
-    for key, value in request.header_items():
-        if key.lower() == name.lower():
-            return value
-    return None
+    return request.headers.get(name)

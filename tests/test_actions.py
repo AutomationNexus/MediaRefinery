@@ -5,6 +5,8 @@ import json
 import sqlite3
 from urllib.parse import urlparse
 
+import httpx
+
 from mediarefinery.actions import ActionExecutor
 from mediarefinery.config import load_config, validate_config_data
 from mediarefinery.decision import ActionPlan
@@ -269,7 +271,7 @@ def test_unsupported_archive_action_records_failure_and_continues(tmp_path) -> N
 def test_real_http_tag_action_creates_missing_tag_when_enabled() -> None:
     """Test real http tag action creates missing tag when enabled."""
     config = _config_for_policy(["add_tag"], dry_run=False)
-    transport = _FakeUrlOpen(
+    transport = _FakeTransport(
         [
             (200, []),
             (201, {"id": "tag-1", "name": "mediarefinery-review"}),
@@ -289,7 +291,7 @@ def test_real_http_tag_action_creates_missing_tag_when_enabled() -> None:
 
     assert result.success is True
     assert result.error_code is None
-    assert [request.get_method() for request in transport.requests] == [
+    assert [request.method for request in transport.requests] == [
         "GET",
         "POST",
         "PUT",
@@ -310,7 +312,7 @@ def test_real_http_tag_action_respects_create_disabled_when_tag_exists() -> None
     data["actions"]["create_tag_if_missing"] = False
     data["policies"]["needs_review"]["image"]["on_match"] = ["add_tag"]
     config = validate_config_data(data)
-    transport = _FakeUrlOpen(
+    transport = _FakeTransport(
         [
             (
                 200,
@@ -337,7 +339,7 @@ def test_real_http_tag_action_respects_create_disabled_when_tag_exists() -> None
     result = ActionExecutor(config, client).execute(plan)[0]
 
     assert result.success is True
-    assert [request.get_method() for request in transport.requests] == ["GET", "PUT"]
+    assert [request.method for request in transport.requests] == ["GET", "PUT"]
     assert [_path(request) for request in transport.requests] == [
         "/api/tags",
         "/api/tags/tag-1/assets",
@@ -351,7 +353,7 @@ def test_real_http_tag_action_respects_create_disabled_when_tag_is_missing() -> 
     data["actions"]["create_tag_if_missing"] = False
     data["policies"]["needs_review"]["image"]["on_match"] = ["add_tag"]
     config = validate_config_data(data)
-    transport = _FakeUrlOpen([(200, [])])
+    transport = _FakeTransport([(200, [])])
     client = _http_client(transport)
     plan = ActionPlan(
         "needs_review",
@@ -372,7 +374,7 @@ def test_real_http_tag_action_respects_create_disabled_when_tag_is_missing() -> 
 def test_real_http_tag_action_failure_is_sanitized() -> None:
     """Test real http tag action failure is sanitized."""
     config = _config_for_policy(["add_tag"], dry_run=False)
-    transport = _FakeUrlOpen(
+    transport = _FakeTransport(
         [
             (
                 200,
@@ -424,7 +426,7 @@ def test_real_http_tag_partial_failure_records_state_and_continues(tmp_path) -> 
     )
     data["policies"]["needs_review"]["image"]["on_match"] = ["add_tag"]
     config = validate_config_data(data)
-    transport = _FakeUrlOpen(
+    transport = _FakeTransport(
         [
             (
                 200,
@@ -508,13 +510,10 @@ def test_real_http_tag_action_dry_run_makes_no_requests() -> None:
     """Test real http tag action dry run makes no requests."""
     config = _config_for_policy(["add_tag"], dry_run=True)
 
-    def fail_on_network(*args, **kwargs):  # pragma: no cover - failure path
-        raise AssertionError("dry-run must not call Immich HTTP")
-
     client = HttpImmichClient(
         base_url="https://immich.example.local",
         api_key="test-secret",
-        urlopen_func=fail_on_network,
+        transport=_FakeTransport([]),
     )
     plan = ActionPlan(
         "needs_review",
@@ -539,13 +538,10 @@ def test_real_http_adapter_keeps_archive_closed_without_requests() -> None:
         archive_enabled=True,
     )
 
-    def fail_on_network(*args, **kwargs):  # pragma: no cover - failure path
-        raise AssertionError("unsupported actions must not call Immich HTTP")
-
     client = HttpImmichClient(
         base_url="https://immich.example.local",
         api_key="test-secret",
-        urlopen_func=fail_on_network,
+        transport=_FakeTransport([]),
     )
     archive_plan = ActionPlan(
         "needs_review",
@@ -561,39 +557,24 @@ def test_real_http_adapter_keeps_archive_closed_without_requests() -> None:
     assert archive_result.error_code == "archive_unsupported"
 
 
-class _FakeResponse:
-    def __init__(self, status: int, body: object):
-        self.status = status
-        self._body = _response_body(body)
-
-    def read(self) -> bytes:
-        return self._body
-
-    def __enter__(self) -> _FakeResponse:
-        return self
-
-    def __exit__(self, exc_type: object, exc: object, tb: object) -> None:
-        return None
-
-
-class _FakeUrlOpen:
+class _FakeTransport(httpx.BaseTransport):
     def __init__(self, responses: list[tuple[int, object]]):
         self._responses = list(responses)
-        self.requests = []
+        self.requests: list[httpx.Request] = []
 
-    def __call__(self, request, **kwargs):
+    def handle_request(self, request: httpx.Request) -> httpx.Response:
         self.requests.append(request)
         if not self._responses:
             raise AssertionError("unexpected HTTP request")
         status, body = self._responses.pop(0)
-        return _FakeResponse(status, body)
+        return httpx.Response(status, content=_response_body(body), request=request)
 
 
-def _http_client(transport: _FakeUrlOpen) -> HttpImmichClient:
+def _http_client(transport: _FakeTransport) -> HttpImmichClient:
     return HttpImmichClient(
         base_url="https://immich.example.local",
         api_key="test-secret",
-        urlopen_func=transport,
+        transport=transport,
         max_retries=0,
         retry_backoff_seconds=0,
     )
@@ -606,11 +587,11 @@ def _response_body(body: object) -> bytes:
 
 
 def _path(request) -> str:
-    return urlparse(request.full_url).path
+    return urlparse(str(request.url)).path
 
 
 def _json_body(request) -> dict:
-    return json.loads((request.data or b"{}").decode("utf-8"))
+    return json.loads(request.content or b"{}")
 
 
 def _sqlite_rows(path, query: str) -> list[tuple]:

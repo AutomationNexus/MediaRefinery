@@ -4,14 +4,13 @@ from __future__ import annotations
 import json
 import os
 import shutil
-import ssl
 import tempfile
 from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass, field
 from pathlib import Path
-from urllib.error import HTTPError, URLError
 from urllib.parse import urlparse, urlunparse
-from urllib.request import Request, urlopen
+
+import httpx
 
 from .config import AppConfig, ConfigError, load_config
 
@@ -111,6 +110,7 @@ class _ImmichDoctorHttpClient:
         api_key: str,
         timeout_seconds: float,
         verify_tls: bool,
+        ca_bundle: str | None = None,
     ):
         """Initialize the instance.
 
@@ -120,11 +120,17 @@ class _ImmichDoctorHttpClient:
         api_key : str
         timeout_seconds : float
         verify_tls : bool
+        ca_bundle : str or None, optional
+            Path to a CA bundle to verify against; takes precedence over
+            ``verify_tls`` so an operator can pin a self-signed cert instead of
+            disabling verification.
         """
         self._base_url = base_url
         self._api_key = api_key
         self._timeout_seconds = timeout_seconds
-        self._context = None if verify_tls else ssl._create_unverified_context()  # nosec B323 - opt-in only when the operator explicitly sets verify_tls=False (e.g. self-signed Immich on a trusted LAN)
+        # A CA-bundle path (verify against a custom CA) wins; otherwise True
+        # (default system trust) or False (explicit opt-in, unverified).
+        self._verify: str | bool = ca_bundle or verify_tls
 
     def get_json(self, endpoint: str, *, authenticated: bool) -> _HttpProbeResult:
         """Return json.
@@ -141,30 +147,21 @@ class _ImmichDoctorHttpClient:
         headers = {"Accept": "application/json"}
         if authenticated:
             headers["x-api-key"] = self._api_key
-        request = Request(
-            _immich_api_url(self._base_url, endpoint),
-            headers=headers,
-            method="GET",
-        )
+        url = _immich_api_url(self._base_url, endpoint)
         try:
-            with urlopen(  # nosec B310 - URL is built from the operator-configured Immich base_url (http/https API), not arbitrary user input
-                request,
-                timeout=self._timeout_seconds,
-                context=self._context,
-            ) as response:
-                body = response.read(65536)
-        except HTTPError as exc:
-            return _HttpProbeResult(status_code=exc.code)
-        except (OSError, TimeoutError, URLError):
+            with httpx.Client(verify=self._verify, timeout=self._timeout_seconds) as client:
+                response = client.get(url, headers=headers)
+        except httpx.HTTPError:
             return _HttpProbeResult(status_code=None, error_code="network_unreachable")
 
+        body = response.content[:65536]
         json_data = None
         if body:
             try:
                 json_data = json.loads(body.decode("utf-8"))
             except (UnicodeDecodeError, json.JSONDecodeError):
                 json_data = None
-        return _HttpProbeResult(status_code=response.status, json_data=json_data)
+        return _HttpProbeResult(status_code=response.status_code, json_data=json_data)
 
 
 def run_doctor_checks(
@@ -270,6 +267,7 @@ def probe_immich(config: AppConfig, api_key: str) -> Sequence[DoctorCheck]:
         api_key=api_key,
         timeout_seconds=_doctor_timeout(immich.get("timeout_seconds")),
         verify_tls=bool(immich.get("verify_tls", True)),
+        ca_bundle=(str(immich.get("ca_bundle")) if immich.get("ca_bundle") else None),
     )
 
     reachability = _probe_reachability(client)

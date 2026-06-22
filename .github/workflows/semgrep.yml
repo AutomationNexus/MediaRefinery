@@ -29,7 +29,7 @@ defaults:
 jobs:
   semgrep:
     name: Semgrep
-    runs-on: [self-hosted, Linux, X64]
+    runs-on: ubuntu-latest
     timeout-minutes: 15
     container:
       image: returntocorp/semgrep

@@ -6,6 +6,8 @@ from pathlib import Path
 from typing import Any
 
 from mediarefinery.service.config import (
+    DEFAULT_BIND_HOST,
+    DEFAULT_PORT,
     MediaSamplingConfig,
     OcrConfig,
     ServiceConfig,
@@ -63,6 +65,8 @@ def service_config_from_nested(
         demo_mode=demo_mode,
         auto_scan_enabled=bool(sys.get("auto_scan_enabled", True)) and not demo_mode,
         state_db_path_override=state_db_path_override,
+        bind_host=str(sys.get("bind_host") or DEFAULT_BIND_HOST).strip() or DEFAULT_BIND_HOST,
+        bind_port=int(sys.get("bind_port", DEFAULT_PORT)),
         media_sampling=MediaSamplingConfig(
             enabled=bool(ms.get("enabled", False)),
             max_original_bytes=int(ms.get("max_original_bytes", 250 * 1024 * 1024)),
