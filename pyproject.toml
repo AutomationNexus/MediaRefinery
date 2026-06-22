@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "mediarefinery"
-version = "0.0.1"
+version = "0.0.2"
 description = "Local-first media triage companion for Immich with user-defined categories."
 readme = "README.md"
 requires-python = ">=3.11"
