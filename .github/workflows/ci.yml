@@ -191,8 +191,8 @@ jobs:
           path: src/mediarefinery/web/
       - name: Install dependencies
         run: pip install -e ".[dev,service]" -r requirements-dev-frontend.txt
-      - name: Install system Chromium
-        run: bash tools/ci-install-chromium.sh
+      - name: Install Playwright Chromium
+        run: python -m playwright install --with-deps chromium
       - name: Run E2E tests
         run: python -m pytest tests/e2e_frontend -m playwright -v --tb=short
       - name: Upload E2E coverage

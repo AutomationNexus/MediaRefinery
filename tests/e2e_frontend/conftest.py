@@ -21,19 +21,17 @@ def _repo_root() -> str:
 
 @pytest.fixture(scope="session")
 def browser_type_launch_args(browser_type_launch_args):
-    """Use system Chromium on self-hosted runners when Playwright bundles are unavailable."""
-    chrome = os.environ.get("PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH")
-    if chrome:
-        return {
-            **browser_type_launch_args,
-            "executable_path": chrome,
-            "args": [
-                *browser_type_launch_args.get("args", []),
-                "--no-sandbox",
-                "--disable-dev-shm-usage",
-            ],
-        }
-    return browser_type_launch_args
+    """Run Playwright's bundled Chromium with container-safe flags in CI."""
+    if not os.environ.get("CI"):
+        return browser_type_launch_args
+    return {
+        **browser_type_launch_args,
+        "args": [
+            *browser_type_launch_args.get("args", []),
+            "--no-sandbox",
+            "--disable-dev-shm-usage",
+        ],
+    }
 
 
 @pytest.fixture(scope="session")
