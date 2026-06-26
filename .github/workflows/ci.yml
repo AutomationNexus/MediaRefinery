@@ -1,17 +1,18 @@
 name: CI
 
-# Validates on every push to dev and every PR to main/dev.
-# Pushes to main are handled by release.yml (not this workflow) to avoid duplicate runs.
+# Branch model: feature branches -> PR -> dev; releases/promotions move dev -> main.
+# Direct pushes to dev or main are blocked by CI guards and .githooks/pre-push.
 
 on:
   push:
-    branches: [dev]
+    branches: [main, dev]
   pull_request:
     types: [opened, synchronize, reopened]
     branches: [main, dev]
 
 permissions:
   contents: read
+  pull-requests: read
 
 # ───────────────────────── Architecture toggle ─────────────────────────
 # Edit CI_PLATFORMS to flip arch coverage on PR CI. Multi-arch builds run
@@ -31,6 +32,82 @@ defaults:
     shell: bash
 
 jobs:
+  guard-dev-direct-push:
+    name: Guard Dev Direct Push
+    runs-on: ubuntu-latest
+    if: github.event_name == 'push' && github.ref == 'refs/heads/dev'
+    steps:
+      - name: Require PR merge for dev pushes
+        uses: actions/github-script@v8
+        with:
+          script: |
+            const allowedBots = new Set(["github-actions[bot]", "dependabot[bot]"]);
+            if (allowedBots.has(context.actor)) {
+              core.info("Allowed bot push to dev.");
+              return;
+            }
+
+            const message = (context.payload.head_commit?.message || "").trim();
+            if (
+              /^Merge pull request #\d+/m.test(message) ||
+              /\(#\d+\)\s*$/.test(message)
+            ) {
+              core.info("Allowed PR merge push to dev.");
+              return;
+            }
+
+            const { owner, repo } = context.repo;
+            const commitShas = (context.payload.commits || []).map((commit) => commit.id);
+            if (commitShas.length === 0) {
+              commitShas.push(context.sha);
+            }
+
+            for (const commitSha of commitShas) {
+              const { data: pullRequests } =
+                await github.rest.repos.listPullRequestsAssociatedWithCommit({
+                  owner,
+                  repo,
+                  commit_sha: commitSha,
+                });
+              if (pullRequests.some((pr) => pr.merged_at)) {
+                core.info(`Allowed PR merge push to dev (${pullRequests.map((pr) => "#" + pr.number).join(", ")}).`);
+                return;
+              }
+            }
+
+            core.setFailed(
+              "Direct pushes to dev are not allowed. Use a feature branch, open a PR, wait for CI, then merge."
+            );
+
+  guard-main-push:
+    name: Guard Main Direct Push
+    runs-on: ubuntu-latest
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    steps:
+      - name: Require workflow promotion for main pushes
+        run: |
+          if [ "${{ github.event_name }}" = "push" ] && [ "${{ github.ref }}" = "refs/heads/main" ] && [ "${{ github.actor }}" != "github-actions[bot]" ]; then
+            echo "::error::Direct human pushes to main are not allowed. Promote dev to main with the workflow."
+            exit 1
+          fi
+          echo "OK; this is not a direct human push to main."
+
+  guard-dev-source:
+    name: Guard Dev Source Branch
+    runs-on: ubuntu-latest
+    steps:
+      - name: Enforce feature-branch PRs to dev
+        run: |
+          if [ "${{ github.event_name }}" != "pull_request" ] || [ "${{ github.base_ref }}" != "dev" ]; then
+            echo "Not a PR to dev; guard does not apply. OK."
+            exit 0
+          fi
+          if [ "${{ github.head_ref }}" = "dev" ] || [ "${{ github.head_ref }}" = "main" ]; then
+            echo "::error::PRs to dev must come from a feature branch, not '${{ github.head_ref }}'."
+            exit 1
+          fi
+          echo "OK; source branch is a feature branch."
+
   guard-main-source:
     name: Guard Main Source Branch
     # Runs on every CI event. Early-exits with success when not a PR to main,
