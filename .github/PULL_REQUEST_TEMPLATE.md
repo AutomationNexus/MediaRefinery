@@ -2,6 +2,10 @@
 
 <!-- What does this PR do in one or two sentences? -->
 
+## Branch policy
+
+- [ ] This PR targets `dev` from a feature branch (not a direct push to `dev` or `main`)
+
 
 ## Related issue
 

@@ -1,0 +1,22 @@
+#!/usr/bin/env bash
+# Block direct pushes to protected branches dev and main.
+# Use a feature branch + PR to dev; promote dev to main via GitHub Actions workflow.
+
+protected_pattern='^refs/heads/(dev|main)$'
+
+while read -r local_ref local_sha remote_ref remote_sha; do
+  if [[ -z "$remote_ref" ]]; then
+    continue
+  fi
+  if [[ "$remote_ref" =~ $protected_pattern ]]; then
+    branch="${remote_ref#refs/heads/}"
+    echo "error: direct push to '$branch' is not allowed." >&2
+    echo "Create a feature branch, open a PR to dev, wait for CI, then merge." >&2
+    if [[ "$branch" == "main" ]]; then
+      echo "Promote dev to main only with the 'Promote dev to main' GitHub Actions workflow." >&2
+    fi
+    exit 1
+  fi
+done
+
+exit 0

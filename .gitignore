@@ -42,12 +42,25 @@ src/mediarefinery/web/
 .DS_Store
 Thumbs.db
 
-# Local-only contributor and planning notes (kept on disk for development,
-# not part of the public repository)
+# Local operator and AI tool state
+AGENT-HANDOFF.md
 AGENTS.md
 CLAUDE.md
+docs/access.md
 .cursor/
 .claude/
+.mcp.json
+.cursorrules
+.aider*
+.windsurf/
+.copilot/
+.continuedev/
+.codeium/
+opencode.json
+.opencode/
+
+# Local-only contributor and planning notes (kept on disk for development,
+# not part of the public repository)
 agents/
 planning/handoff-template.md
 planning/sprint-*.md

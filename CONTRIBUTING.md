@@ -24,15 +24,19 @@ npm install
 Run these before opening a pull request:
 
 ```powershell
-.\.venv\Scripts\python.exe -m pytest
-.\.venv\Scripts\python.exe -m ruff check src tests
+.\.venv\Scripts\python.exe -m ruff check src tests tools
+.\.venv\Scripts\python.exe -m pytest -q
 .\.venv\Scripts\python.exe -m compileall -q src tests
 
 cd frontend
 npm run typecheck
 npm test
 npm run build
+
+git diff --check
 ```
+
+Enable local push protection once per clone: `tools\install-githooks.cmd` (see [docs/runbooks/branch-policy.md](docs/runbooks/branch-policy.md)).
 
 The longer contributor workflow, Docker smoke, and package validation steps are in [docs/development/local-development.md](docs/development/local-development.md).
 
@@ -63,8 +67,10 @@ Useful issue and PR labels:
 
 ## Branches and Commits
 
-- Branch names: `feat/...`, `fix/...`, `docs/...`, or `chore/...`.
+- Read [docs/runbooks/branch-policy.md](docs/runbooks/branch-policy.md). Never push directly to `dev` or `main`.
+- Feature branch names: `mr/...` prefix (e.g. `mr/fix-scan-queue`).
 - Conventional Commits are welcome: `type(scope): description`.
+- OpenCode bootstrap (local only): `tools\bootstrap-opencode.ps1` — see [docs/runbooks/opencode-init.md](docs/runbooks/opencode-init.md).
 
 ## Code of Conduct
 
