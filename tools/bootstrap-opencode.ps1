@@ -29,9 +29,9 @@ if (-not (Test-Path $liveJson)) {
     $liveObj.model = $exampleObj.model
     $liveObj.small_model = $exampleObj.small_model
     $liveObj.agent = $exampleObj.agent
-    foreach ($key in @("instructions", "share", "snapshot", "watcher", "tool_output", "compaction", "permission")) {
+    foreach ($key in @("shell", "instructions", "share", "snapshot", "watcher", "tool_output", "compaction", "permission")) {
         if ($exampleObj.PSObject.Properties.Name -contains $key) {
-            $liveObj.$key = $exampleObj.$key
+            $liveObj | Add-Member -NotePropertyName $key -NotePropertyValue $exampleObj.$key -Force
         }
     }
     $liveObj | ConvertTo-Json -Depth 30 | Set-Content -Path $liveJson -Encoding utf8
