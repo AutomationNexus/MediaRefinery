@@ -7,7 +7,7 @@ Use this prompt when handing the MediaRefinery repo to opencode or another codin
 - `opencode.json` and `.opencode/` are local-only. Never commit them.
 - Bootstrap on a new machine: run `tools\bootstrap-opencode.ps1` (or `tools\bootstrap-opencode.cmd`). This copies `opencode.json.example` to `opencode.json` when missing, and mirrors committed seeds from `tooling/opencode/` into `.opencode/`.
 - Committed templates: `opencode.json.example` and `tooling/opencode/` (project rules, plan/build instructions, agents, commands).
-- New sessions default to **plan** mode (`cursor-acp/composer-2.5`, read-only). Switch to **build** with Tab or run `/mr-execute` after plan approval. Build uses the same model with `.opencode/project-rules.md` and `.opencode/build-instructions.md`.
+- New sessions default to **plan** mode (`openai/gpt-5.5`, read-only). Switch to **build** with Tab or run `/mr-execute` after plan approval. Build uses the same model with `.opencode/project-rules.md` and `.opencode/build-instructions.md`.
 - Built-in `general`, `explore`, and `scout` agents are disabled in `opencode.json`.
 
 ```text

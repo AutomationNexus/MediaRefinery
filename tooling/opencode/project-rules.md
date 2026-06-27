@@ -2,6 +2,17 @@
 
 This repo is MediaRefinery — a self-hosted Immich review companion with a FastAPI backend, React dashboard, and SQLite state store.
 
+## Shell (Windows local dev)
+
+Agents run terminal commands in PowerShell (`powershell` or `pwsh` when configured in `opencode.json`).
+
+- Chain commands with `;`, not `&&` or `||`.
+- Use Windows paths (`tools\bootstrap-opencode.cmd`) or quoted paths when needed.
+- Outside the clone or without a git remote, pass `gh --repo automationnexus/MediaRefinery` for repo-scoped commands.
+- Trim long output with `Select-Object -Last N`; use `gh run view --log-failed` instead of grepping full CI logs.
+- One shell invocation per tool call when debugging; do not mix cmd, bash, and PowerShell in one pipeline.
+- CI workflows (`.github/workflows/`) stay bash on `ubuntu-latest`; do not change them for local Windows.
+
 ## Safety Rules
 
 - Start every task with `git status --short --branch` before edits.

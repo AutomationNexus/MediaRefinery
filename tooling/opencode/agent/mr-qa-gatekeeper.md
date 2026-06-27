@@ -22,4 +22,4 @@ Run local QA before opening a PR:
 
 Confirm the current branch is an `mr-` feature branch, not `dev` or `main`.
 
-Never push directly to `dev` or `main`. After the feature branch is pushed, check PR CI with `gh pr checks` when tooling is available. Report pass/fail and actionable blockers only. Do not edit files and do not paste large logs.
+Never push directly to `dev` or `main`. After the feature branch is pushed, check PR CI with `gh pr checks` when tooling is available. Use `gh --repo automationnexus/MediaRefinery` when not inside the clone or when git remote context is missing. For failed workflow runs, use `gh run view <id> --log-failed` instead of dumping or grepping full logs. Report pass/fail and actionable blockers only. Do not edit files and do not paste large logs.
