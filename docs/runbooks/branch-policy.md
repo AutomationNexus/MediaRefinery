@@ -6,7 +6,7 @@ GitHub branch protection is unavailable on the current plan. CI guards and local
 
 | Branch | How changes land |
 |--------|------------------|
-| `dev` | Feature branch → PR → CI green → merge → delete feature branch |
+| `dev` | Feature branch → PR → CI green → merge; GitHub auto-deletes the feature branch |
 | `main` | `Promote dev to main` workflow after dev CI is green |
 
 Direct `git push` to `dev` or `main` is blocked locally (`.githooks/pre-push`) and fails CI if bypassed.
@@ -28,7 +28,7 @@ gh pr create --base dev --title "Short title" --body "Summary and test plan"
 
 Feature branch names should use the `mr-` prefix (e.g. `mr/fix-scan-pipeline`).
 
-After CI is green on the PR, merge on GitHub. Delete the feature branch when prompted.
+After CI is green on the PR, merge on GitHub. GitHub's `delete_branch_on_merge` setting automatically deletes merged same-repo feature branches; if GitHub cannot delete a branch, delete it manually.
 
 ## Local hook setup (once per clone)
 
