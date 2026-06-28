@@ -23,11 +23,11 @@ concurrency:
 jobs:
   nightly:
     uses: automationnexus/.github/.github/workflows/nightly.yml@v1
-    secrets: inherit
     with:
       runner-labels: '["ubuntu-latest"]'
       image-name: automationnexus/mediarefinery
       platforms: linux/amd64
+      force_run: ${{ inputs.force_run || false }}
       has-frontend: true
       spa-artifact-path: 'src/mediarefinery/web/'
       coverage-threshold: 90

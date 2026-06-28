@@ -20,4 +20,3 @@ concurrency:
 jobs:
   docs:
     uses: automationnexus/.github/.github/workflows/docs.yml@v1
-    secrets: inherit
