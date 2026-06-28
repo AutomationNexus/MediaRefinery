@@ -314,6 +314,6 @@ jobs:
       pull-requests: write
     steps:
       - name: Merge PR
-        run: gh pr merge --merge --delete-branch "${{ github.event.pull_request.number }}" --repo "${{ github.repository }}"
+        run: gh pr merge --merge "${{ github.event.pull_request.number }}" --repo "${{ github.repository }}"
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
