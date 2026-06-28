@@ -301,64 +301,8 @@ jobs:
           git fetch --prune origin
           merged=$(git branch -r --merged origin/dev \
             | grep -v 'HEAD' \
-            | grep -v 'origin/dev
-    needs: [build-and-push]
-    runs-on: ubuntu-latest
-    timeout-minutes: 15
-    continue-on-error: true
-    steps:
-      - name: Log in to GHCR
-        uses: docker/login-action@v4
-        with:
-          registry: ${{ env.REGISTRY }}
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Scan nightly image with Trivy
-        uses: aquasecurity/trivy-action@master
-        with:
-          image-ref: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:nightly
-          format: json
-          output: trivy-report.json
-          severity: HIGH,CRITICAL
-          exit-code: "0"
-
-      - uses: actions/upload-artifact@v7
-        if: always()
-        with:
-          name: trivy-report-nightly-${{ github.run_id }}
-          path: trivy-report.json
-          retention-days: 1
- \
-            | grep -v 'origin/main
-    needs: [build-and-push]
-    runs-on: ubuntu-latest
-    timeout-minutes: 15
-    continue-on-error: true
-    steps:
-      - name: Log in to GHCR
-        uses: docker/login-action@v4
-        with:
-          registry: ${{ env.REGISTRY }}
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Scan nightly image with Trivy
-        uses: aquasecurity/trivy-action@master
-        with:
-          image-ref: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:nightly
-          format: json
-          output: trivy-report.json
-          severity: HIGH,CRITICAL
-          exit-code: "0"
-
-      - uses: actions/upload-artifact@v7
-        if: always()
-        with:
-          name: trivy-report-nightly-${{ github.run_id }}
-          path: trivy-report.json
-          retention-days: 1
- \
+            | grep -v 'origin/dev$' \
+            | grep -v 'origin/main$' \
             | sed 's|[[:space:]]*origin/||')
           if [ -z "$merged" ]; then
             echo "No merged branches to delete."
@@ -366,7 +310,7 @@ jobs:
           fi
           for branch in $merged; do
             echo "Deleting merged branch: $branch"
-            gh api -X DELETE "repos/${{ github.repository }}/git/refs/heads/$branch" \
+            gh api -X DELETE "repos/$GITHUB_REPOSITORY/git/refs/heads/$branch" \
               && echo "Deleted: $branch" \
               || echo "Could not delete (may already be gone): $branch"
           done
