@@ -4,7 +4,7 @@ mode: subagent
 hidden: true
 model: anthropic/claude-opus-4-8
 variant: max
-steps: 40
+steps: 20
 color: warning
 ---
 

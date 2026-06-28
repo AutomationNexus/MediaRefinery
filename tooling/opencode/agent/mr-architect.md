@@ -4,7 +4,7 @@ mode: subagent
 hidden: true
 model: openai/gpt-5.5
 variant: high
-steps: 40
+steps: 20
 color: accent
 permission:
   edit: deny

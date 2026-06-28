@@ -4,7 +4,7 @@ mode: subagent
 hidden: true
 model: anthropic/claude-sonnet-4-6
 variant: high
-steps: 50
+steps: 25
 color: info
 ---
 
