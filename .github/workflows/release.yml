@@ -27,11 +27,11 @@ concurrency:
 jobs:
   docker-release:
     uses: automationnexus/.github/.github/workflows/release-docker.yml@v1
-    secrets: inherit
     with:
       runner-labels: '["ubuntu-latest"]'
       image-name: automationnexus/mediarefinery
       platforms: linux/amd64
+      tag_name: ${{ inputs.tag_name || '' }}
       has-frontend: true
       spa-artifact-path: 'src/mediarefinery/web/'
       has-validation: false
