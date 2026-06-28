@@ -24,6 +24,7 @@ jobs:
       has-frontend: true
       has-e2e: true
       has-security: true
+      security-paths: src/mediarefinery
       spa-artifact-path: src/mediarefinery/web/
       lint-paths: src tests tools
       pip-install-cmd: 'python -m venv .venv && .venv/bin/pip install -e ".[dev,service]" -q'
