@@ -300,3 +300,20 @@ jobs:
           name: security-reports-${{ github.run_id }}
           path: "*.json"
           retention-days: 1
+
+  auto-merge:
+    name: Auto-Merge on CI Pass
+    needs: [guard-dev-source, guard-main-source, lint, hygiene, test-standards, frontend, test, e2e, security]
+    if: >
+      github.event_name == 'pull_request' &&
+      github.base_ref == 'dev' &&
+      success()
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+    steps:
+      - name: Merge PR
+        run: gh pr merge --merge "${{ github.event.pull_request.number }}" --repo "${{ github.repository }}"
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
