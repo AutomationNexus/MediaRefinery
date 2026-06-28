@@ -26,7 +26,7 @@ Start by reading:
 Branch model:
 - dev is the workbench branch for features, tests, and proposed changes.
 - main is the stable production branch.
-- Never push directly to dev or main. Use feature branches (prefix mr-), open PRs to dev, merge after CI is green, then delete the feature branch.
+- Never push directly to dev or main. Use feature branches (prefix mr-), open PRs to dev, merge after CI is green; GitHub auto-deletes merged feature branches.
 - Stable release is dev to main through the "Promote dev to main" GitHub Actions workflow after dev CI is green.
 - The repo is private, and GitHub branch protection is unavailable on the current plan, so CI and .githooks/pre-push enforce policy for dev and main.
 - Read docs/runbooks/branch-policy.md for the exact agent workflow.
@@ -46,7 +46,7 @@ Normal workflow:
    python -m pytest tests/ -q
    cd frontend && npm run typecheck && npm test -- --run && npm run build
    git diff --check
-6. Push the feature branch and open a PR to dev; merge after CI is green; delete the feature branch.
+6. Push the feature branch and open a PR to dev; merge after CI is green; confirm the feature branch was auto-deleted.
 7. Promote dev to main only with the GitHub Actions workflow after dev CI succeeds.
 
 OpenCode commands:

@@ -33,7 +33,7 @@ Before opening a PR, run local QA in the same task:
 - In `frontend/`: `npm run typecheck`, `npm test`, `npm run build`
 - `git diff --check`
 
-Never push directly to `dev` or `main`. Use a feature branch, open a PR to `dev`, wait for CI green, merge, then delete the feature branch.
+Never push directly to `dev` or `main`. Use a feature branch, open a PR to `dev`, wait for CI green, merge; GitHub auto-deletes the feature branch.
 
 Promote `dev` to `main` only through the **Promote dev to main** workflow after dev CI is green.
 
