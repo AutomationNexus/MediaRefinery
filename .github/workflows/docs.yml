@@ -1,11 +1,8 @@
 name: Deploy Docs
 
-# Workflow registration: push to main (docs paths) / manual dispatch.
-# Pages must be enabled with build_type=workflow before deploy (see scripts/AutomationNexus.ReleaseHelpers.ps1).
 on:
   push:
-    branches:
-      - main
+    branches: [main]
     paths:
       - "docs/**"
       - "mkdocs.yml"
@@ -20,57 +17,7 @@ concurrency:
   group: pages
   cancel-in-progress: false
 
-defaults:
-  run:
-    shell: bash
-
 jobs:
-  build:
-    name: Build MkDocs
-    runs-on: ubuntu-latest
-    timeout-minutes: 10
-    steps:
-      - uses: actions/checkout@v6
-        with:
-          fetch-depth: 0
-
-      - uses: actions/setup-python@v6
-        with:
-          python-version: "3.11"
-          cache: pip
-
-      - name: Install MkDocs Material
-        run: pip install mkdocs-material
-
-      - name: Build site
-        run: mkdocs build
-
-      - uses: actions/upload-pages-artifact@v5
-        with:
-          path: site/
-
-  deploy:
-    name: Deploy to GitHub Pages
-    needs: build
-    runs-on: ubuntu-latest
-    environment:
-      name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
-    steps:
-      - name: Require GitHub Pages (workflow source)
-        run: |
-          code="$(curl -sS -o /tmp/pages.json -w '%{http_code}' \
-            -H "Authorization: Bearer ${GITHUB_TOKEN}" \
-            -H "Accept: application/vnd.github+json" \
-            "https://api.github.com/repos/${GITHUB_REPOSITORY}/pages")"
-          if [ "$code" = "404" ]; then
-            echo "::error::GitHub Pages is not enabled. Run: gh api -X POST repos/${GITHUB_REPOSITORY}/pages -f build_type=workflow"
-            echo "Or open Settings → Pages → Source: GitHub Actions."
-            exit 1
-          fi
-          echo "GitHub Pages configured (HTTP $code)"
-        env:
-          GITHUB_TOKEN: ${{ github.token }}
-
-      - uses: actions/deploy-pages@v5
-        id: deployment
+  docs:
+    uses: automationnexus/.github/.github/workflows/docs.yml@v1
+    secrets: inherit
