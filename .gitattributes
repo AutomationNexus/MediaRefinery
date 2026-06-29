@@ -32,3 +32,4 @@
 *.ico       binary
 *.onnx      binary
 *.gguf      binary
+.githooks/** text eol=lf

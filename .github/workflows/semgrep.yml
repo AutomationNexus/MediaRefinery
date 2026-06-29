@@ -1,19 +1,12 @@
 name: Semgrep
 
-# Free open-source SAST. Runs the security-audit + secrets rulesets on
-# every push and PR to main/dev, and weekly to catch advisories that
-# land between commits. Uploads JSON results as a workflow artifact;
-# we intentionally don't push SARIF to GitHub Code Scanning because that
-# integration requires GitHub Advanced Security on private repos —
-# keeping this identical across both repos.
-
 on:
   push:
     branches: [main, dev]
   pull_request:
     branches: [main, dev]
   schedule:
-    - cron: "0 7 * * 0" # Sundays 07:00 UTC
+    - cron: "0 7 * * 0"
 
 permissions:
   contents: read
@@ -22,53 +15,6 @@ concurrency:
   group: semgrep-${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
-defaults:
-  run:
-    shell: bash
-
 jobs:
   semgrep:
-    name: Semgrep
-    runs-on: ubuntu-latest
-    timeout-minutes: 15
-    container:
-      image: returntocorp/semgrep
-    steps:
-      - uses: actions/checkout@v6
-
-      - name: Run Semgrep
-        # Informational: emits the report but does not gate the PR.
-        # Matches the Bandit/pip-audit pattern in ci.yml. Review findings
-        # via the workflow artifact or the job log. To make Semgrep gating,
-        # add `--error` and remove the trailing `|| true`.
-        run: |
-          semgrep scan \
-            --config=p/security-audit \
-            --config=p/secrets \
-            --json --output=semgrep-report.json \
-            --metrics=off || true
-
-      - name: Summarize findings
-        if: always()
-        run: |
-          if [ ! -s semgrep-report.json ]; then
-            echo "No report produced."
-            exit 0
-          fi
-          ERRORS=$(jq '[.results[]? | select(.extra.severity=="ERROR")] | length' semgrep-report.json 2>/dev/null || echo 0)
-          WARNINGS=$(jq '[.results[]? | select(.extra.severity=="WARNING")] | length' semgrep-report.json 2>/dev/null || echo 0)
-          INFO=$(jq '[.results[]? | select(.extra.severity=="INFO")] | length' semgrep-report.json 2>/dev/null || echo 0)
-          echo "Semgrep findings — ERROR: $ERRORS  WARNING: $WARNINGS  INFO: $INFO"
-          if [ "$ERRORS" -gt 0 ]; then
-            echo ""
-            echo "ERROR-severity findings (top 20):"
-            jq -r '.results[] | select(.extra.severity=="ERROR") | "\(.path):\(.start.line)  [\(.check_id)]\n    \(.extra.message)"' semgrep-report.json | head -60
-          fi
-
-      - name: Upload Semgrep report
-        uses: actions/upload-artifact@v7
-        if: always()
-        with:
-          name: semgrep-report-${{ github.run_id }}
-          path: semgrep-report.json
-          retention-days: 1
+    uses: automationnexus/.github/.github/workflows/semgrep.yml@v1

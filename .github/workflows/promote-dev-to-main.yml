@@ -6,6 +6,7 @@ on:
 permissions:
   actions: write
   contents: write
+  pull-requests: write
 
 concurrency:
   group: promote-dev-to-main
@@ -13,49 +14,9 @@ concurrency:
 
 jobs:
   promote:
-    name: Promote dev → main
-    runs-on: ubuntu-latest
-    timeout-minutes: 10
-    steps:
-      - name: Require green dev CI
-        uses: actions/github-script@v8
-        with:
-          script: |
-            const { owner, repo } = context.repo;
-            const { data: workflows } = await github.rest.actions.listRepoWorkflows({ owner, repo });
-            const ci = workflows.workflows.find((w) => w.path === ".github/workflows/ci.yml");
-            if (!ci) core.setFailed("CI workflow not found");
-            const { data } = await github.rest.actions.listWorkflowRuns({
-              owner,
-              repo,
-              workflow_id: ci.id,
-              branch: "dev",
-              per_page: 1,
-            });
-            const run = data.workflow_runs[0];
-            if (!run || run.conclusion !== "success") {
-              core.setFailed(`Latest dev CI must be success (got ${run?.conclusion ?? "none"})`);
-            }
-
-      - uses: actions/checkout@v6
-        with:
-          ref: dev
-          fetch-depth: 0
-          # Admin PAT so the push below bypasses branch protection on main
-          # (enforce_admins=false). A GITHUB_TOKEN push is rejected by a
-          # protected branch; the PAT also makes this a real push event so
-          # release.yml fires on its own — no explicit dispatch needed.
-          token: ${{ secrets.REPO_DISPATCH_PAT }}
-
-      - name: Push dev to main
-        run: |
-          git config user.name "Tahasanul Abraham"
-          git config user.email "17075361+t-abraham@users.noreply.github.com"
-          if git fetch origin main 2>/dev/null && git merge-base --is-ancestor origin/main HEAD 2>/dev/null; then
-            git push origin HEAD:refs/heads/main
-          else
-            git push origin HEAD:refs/heads/main --force
-          fi
-        # Fast-forward push preserves the dev commit author (not a bot), so
-        # release.yml's bot-author guard does not skip it. release.yml then
-        # tags v{version} from pyproject.toml, builds and publishes the image.
+    uses: automationnexus/.github/.github/workflows/promote-dev-to-main.yml@v1
+    with:
+      runner-labels: '["ubuntu-latest"]'
+    secrets:
+      ci-bot-app-id: ${{ secrets.CI_BOT_APP_ID }}
+      ci-bot-app-private-key: ${{ secrets.CI_BOT_APP_PRIVATE_KEY }}

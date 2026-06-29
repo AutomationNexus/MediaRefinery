@@ -1,0 +1,87 @@
+{
+  "$schema": "https://opencode.ai/config.json",
+  "shell": "powershell",
+  "model": "openai/gpt-5.5",
+  "small_model": "anthropic/claude-haiku-4-5",
+  "default_agent": "plan",
+  "agent": {
+    "plan": {
+      "mode": "primary",
+      "model": "openai/gpt-5.5",
+      "instructions": [
+        ".opencode/project-rules.md",
+        "docs/runbooks/branch-policy.md",
+        ".opencode/plan-instructions.md"
+      ]
+    },
+    "build": {
+      "mode": "primary",
+      "model": "openai/gpt-5.5",
+      "instructions": [
+        ".opencode/project-rules.md",
+        "docs/runbooks/branch-policy.md",
+        ".opencode/build-instructions.md"
+      ]
+    },
+    "general": { "disable": true },
+    "explore": { "disable": true },
+    "scout": { "disable": true }
+  },
+  "share": "disabled",
+  "snapshot": true,
+  "instructions": [
+    ".opencode/project-rules.md",
+    "docs/runbooks/branch-policy.md",
+    "docs/runbooks/opencode-init.md"
+  ],
+  "permission": {
+    "read": {
+      "*": "allow",
+      ".env": "deny",
+      ".env.*": "deny",
+      "**/.env": "deny",
+      "**/.env.*": "deny",
+      ".env.example": "allow",
+      "**/.env.example": "allow",
+      "master.key": "deny",
+      "**/master.key": "deny",
+      "config.db": "deny",
+      "**/config.db": "deny",
+      "data/**": "deny",
+      "AGENT-HANDOFF.md": "deny",
+      "AGENTS.md": "deny",
+      "CLAUDE.md": "deny"
+    },
+    "edit": {
+      "*": "allow",
+      ".env": "deny",
+      ".env.*": "deny",
+      "**/.env": "deny",
+      "**/.env.*": "deny",
+      ".env.example": "allow",
+      "**/.env.example": "allow",
+      "master.key": "deny",
+      "**/master.key": "deny",
+      "config.db": "deny",
+      "**/config.db": "deny",
+      "data/**": "deny",
+      "AGENT-HANDOFF.md": "deny",
+      "AGENTS.md": "deny",
+      "CLAUDE.md": "deny"
+    },
+    "bash": {
+      "*": "allow",
+      "git reset --hard*": "deny",
+      "git clean*": "deny",
+      "Get-Content .env*": "deny",
+      "type .env*": "deny",
+      "cat .env*": "deny",
+      "Get-Content master.key*": "deny",
+      "type master.key*": "deny",
+      "cat master.key*": "deny",
+      "Get-Content **/config.db*": "deny",
+      "type **/config.db*": "deny",
+      "cat **/config.db*": "deny"
+    }
+  }
+}
