@@ -212,7 +212,7 @@ describe("Wizard — install phase (steps 3-8 happy path)", () => {
 
     // Step 3 — catalog: select the only model and continue.
     await screen.findByRole("heading", { name: /Choose a classifier model/i });
-    await userEvent.click(screen.getByRole("radio"));
+    await userEvent.click(await screen.findByRole("radio"));
     await userEvent.click(screen.getByRole("button", { name: /Continue/i }));
 
     // Step 4 — license: install button should not exist yet (we're on
@@ -273,7 +273,7 @@ describe("Wizard — direct mount", () => {
     const { rerender } = render(<Wizard phase="install" />);
     // Pick the model.
     await screen.findByRole("heading", { name: /Choose a classifier model/i });
-    await userEvent.click(screen.getByRole("radio"));
+    await userEvent.click(await screen.findByRole("radio"));
     await userEvent.click(screen.getByRole("button", { name: /Continue/i }));
 
     await screen.findByRole("heading", { name: /Review licence/i });
@@ -291,7 +291,7 @@ describe("Wizard — privacy", () => {
 
     render(<App />);
     await screen.findByRole("heading", { name: /Choose a classifier model/i });
-    await userEvent.click(screen.getByRole("radio"));
+    await userEvent.click(await screen.findByRole("radio"));
     await userEvent.click(screen.getByRole("button", { name: /Continue/i }));
     await screen.findByRole("heading", { name: /Review licence/i });
     await userEvent.click(screen.getByRole("checkbox"));
