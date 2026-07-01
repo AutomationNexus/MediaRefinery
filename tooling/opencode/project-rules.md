@@ -49,3 +49,10 @@ Before switching agents: goal (1 line), files touched (paths), branch/status, de
 
 - Python: `src/mediarefinery/`. Frontend: `frontend/` → built statics into `src/mediarefinery/web/`. Tests: `tests/`.
 - Example config: `templates/config.example.yml`.
+
+## Shared CI — Do Not Inline
+
+- **Never inline or fork `automationnexus/.github` reusable-workflow logic** into this repo's own workflow files, even temporarily. Always call it via `uses: automationnexus/.github/.github/workflows/<name>.yml@v1`.
+- If this repo needs CI behavior the shared workflow doesn't support, the fix is a new **generic** input on the shared workflow (contributed to `automationnexus/.github`), never a local copy/paste workaround. Precedent: `build-args`, `main-source-allow-glob`, `exclude-paths` were all added this way.
+- Never use `GITHUB_TOKEN` or a personal access token for cross-branch or cascade automation (nightly, promote, release) — only the CI-Bot GitHub App. It is what makes the ruleset bypass and cascades actually work.
+- Before touching any `.github/workflows/*.yml` file here, check `automationnexus/.github` first — most CI behavior lives there, not in this repo's thin wrapper.
