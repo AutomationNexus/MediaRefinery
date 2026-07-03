@@ -55,6 +55,11 @@ The longer contributor workflow, Docker smoke, and package validation steps are 
 - Link to updated docs when behavior changes.
 - Prefer small, explicit tests around privacy and tenant isolation.
 
+A nightly Docker image (`ghcr.io/automationnexus/mediarefinery:nightly`) is built automatically
+and immediately whenever a PR merges into `dev`, via the **Nightly Build** GitHub Actions
+workflow. There is no scheduled/cron build -- if you need a build without a new commit, trigger
+it manually from the **Actions** tab with the optional `force_run` flag.
+
 ## Labels
 
 Useful issue and PR labels:
