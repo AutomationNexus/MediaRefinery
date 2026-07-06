@@ -1,11 +1,8 @@
-(^|/)AGENT-HANDOFF\.md$
 (^|/)docs/access\.md$
 (^|/)CLAUDE\.md$
+(^|/)\.claude/
 (^|/)AGENTS\.md$
 (^|/)\.mcp\.json$
-(^|/)\.claude/
 (^|/)\.cursorrules$
 (^|/)\.(cursor|windsurf|copilot|continuedev|codeium)/
 (^|/)\.aider
-(^|/)opencode\.json$
-(^|/)\.opencode/
