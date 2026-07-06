@@ -42,13 +42,16 @@ src/mediarefinery/web/
 .DS_Store
 Thumbs.db
 
-# Local operator and AI tool state
-AGENT-HANDOFF.md
-AGENTS.md
-CLAUDE.md
+# Claude Code: personal/local-only files only (never shared with the team).
+# CLAUDE.md and .claude/agents|commands|settings.json are COMMITTED (dev-only,
+# stripped from main by .github/dev-only-paths) -- do not ignore them here.
+CLAUDE.local.md
+.claude/settings.local.json
 docs/access.md
+
+# Other AI tool configs -- not used in this repo; block if ever introduced accidentally
+AGENTS.md
 .cursor/
-.claude/
 .mcp.json
 .cursorrules
 .aider*
@@ -56,12 +59,10 @@ docs/access.md
 .copilot/
 .continuedev/
 .codeium/
-opencode.json
-.opencode/
 
 # Local-only contributor and planning notes (kept on disk for development,
 # not part of the public repository)
-agents/
+/agents/
 planning/handoff-template.md
 planning/sprint-*.md
 planning/release-plan.md

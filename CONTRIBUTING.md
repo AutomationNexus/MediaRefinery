@@ -75,7 +75,8 @@ Useful issue and PR labels:
 - Read [docs/runbooks/branch-policy.md](docs/runbooks/branch-policy.md). Never push directly to `dev` or `main`.
 - Feature branch names: `mr/...` prefix (e.g. `mr/fix-scan-queue`).
 - Conventional Commits are welcome: `type(scope): description`.
-- OpenCode bootstrap (local only): `tools\bootstrap-opencode.ps1` — see [docs/runbooks/opencode-init.md](docs/runbooks/opencode-init.md).
+- Contributors using Claude Code: see [CLAUDE.md](CLAUDE.md) for project conventions,
+  subagents, and slash commands (committed on `dev`, not present on `main`).
 
 ## Code of Conduct
 
