@@ -74,4 +74,3 @@ For hard cross-layer conflicts, switch the main session to opus (`/model opus` o
 
 - Do not add model/provider/router config anywhere in this repo. Claude Code talks directly
   to Anthropic with the operator's own account.
-- Do not reintroduce `opencode.json`, `.opencode/`, or `tooling/opencode/` — retired.
