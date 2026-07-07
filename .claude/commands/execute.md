@@ -5,6 +5,8 @@ argument-hint: [optional focus notes]
 
 Run the MediaRefinery execute pipeline for an approved plan: $ARGUMENTS
 
+0. If this is a single-file/low-risk change, stop — implement it directly in the main
+   session per CLAUDE.md's risk tiering instead of running this full pipeline.
 1. `git status --short --branch` — confirm an `mr-` feature branch (not `dev`/`main`);
    create one from updated `dev` if needed.
 2. Dispatch `backend-engineer` to implement/verify Python/FastAPI/Immich changes.
