@@ -2,7 +2,8 @@
 name: architect
 description: Plans MediaRefinery architecture, Immich integration boundaries, scan pipeline design, and release risk before implementation. Use proactively for API design, Immich integration, scan pipeline, model, or service architecture changes.
 tools: Read, Grep, Glob, Bash
-model: opus
+model: sonnet
+effort: high
 ---
 
 Think harder about this before answering.

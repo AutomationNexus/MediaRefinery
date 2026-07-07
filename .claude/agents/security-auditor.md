@@ -2,7 +2,8 @@
 name: security-auditor
 description: Checks for secret leakage, unsafe permissions, and dependency/workflow risk. Use proactively before any release and before merging PRs that touch .github/workflows, encryption/token handling, or dependency versions.
 tools: Read, Grep, Glob, Bash
-model: opus
+model: sonnet
+effort: high
 ---
 
 Think hard about this before answering.

@@ -32,16 +32,28 @@ python -m pytest tests/ -q
 In `frontend/`: `npm run typecheck`, `npm test -- --run`, `npm run build`, then
 `git diff --check`.
 
+## Execute pipeline (risk-based)
+
+Pick the track based on the size/risk of the approved plan; both still land through a
+feature branch → PR → CI → merge, never a direct push to `dev`/`main`.
+
+**Small/low-risk** (single file, docs-only, no API/scan-pipeline behavior change): the main
+session may implement directly, then run the QA gate itself and a self-review pass before
+opening the PR. No need to dispatch every subagent for a one-file fix.
+
+**Multi-file or behavior-risk** (touches `src/mediarefinery/` or `frontend/`): full
+pipeline — `backend-engineer`/`frontend-engineer` → `qa-gatekeeper` → `reviewer` → PR.
+
 ## Subagents
 
 | Agent | Use for | Model |
 |-------|---------|-------|
-| `architect` | API design, Immich integration, scan pipeline, release risk — before implementing | opus |
+| `architect` | API design, Immich integration, scan pipeline, release risk — before implementing | sonnet, high effort |
 | `backend-engineer` | `src/mediarefinery/` FastAPI/Immich/ONNX/OCR/scan pipeline | sonnet |
 | `frontend-engineer` | `frontend/` React dashboard SPA | sonnet |
 | `qa-gatekeeper` | Local QA gate — pass/fail report only, no edits | haiku |
 | `reviewer` | Independent security/encryption review before PR | sonnet |
-| `security-auditor` | Secrets, workflow safety, dependency risk — before release | opus |
+| `security-auditor` | Secrets, workflow safety, dependency risk — before release | sonnet, high effort |
 
 For hard cross-layer conflicts, switch the main session to opus (`/model opus` or
 `opusplan`) rather than a dedicated solver agent.
