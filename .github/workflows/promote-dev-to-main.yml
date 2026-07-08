@@ -17,6 +17,7 @@ jobs:
     uses: automationnexus/.github/.github/workflows/promote-dev-to-main.yml@v1
     with:
       runner-labels: '["ubuntu-latest"]'
+      strip-dev-only-paths: true
     secrets:
       ci-bot-app-id: ${{ secrets.CI_BOT_APP_ID }}
       ci-bot-app-private-key: ${{ secrets.CI_BOT_APP_PRIVATE_KEY }}
