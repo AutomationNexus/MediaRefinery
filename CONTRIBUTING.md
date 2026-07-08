@@ -55,6 +55,11 @@ The longer contributor workflow, Docker smoke, and package validation steps are 
 - Link to updated docs when behavior changes.
 - Prefer small, explicit tests around privacy and tenant isolation.
 
+A nightly Docker image (`ghcr.io/automationnexus/mediarefinery:nightly`) is built automatically
+and immediately whenever a PR merges into `dev`, via the **Nightly Build** GitHub Actions
+workflow. There is no scheduled/cron build -- if you need a build without a new commit, trigger
+it manually from the **Actions** tab with the optional `force_run` flag.
+
 ## Labels
 
 Useful issue and PR labels:
@@ -70,7 +75,8 @@ Useful issue and PR labels:
 - Read [docs/runbooks/branch-policy.md](docs/runbooks/branch-policy.md). Never push directly to `dev` or `main`.
 - Feature branch names: `mr/...` prefix (e.g. `mr/fix-scan-queue`).
 - Conventional Commits are welcome: `type(scope): description`.
-- OpenCode bootstrap (local only): `tools\bootstrap-opencode.ps1` — see [docs/runbooks/opencode-init.md](docs/runbooks/opencode-init.md).
+- Contributors using Claude Code: see [CLAUDE.md](CLAUDE.md) for project conventions,
+  subagents, and slash commands (committed on `dev`, not present on `main`).
 
 ## Code of Conduct
 

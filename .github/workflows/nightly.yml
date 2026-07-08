@@ -3,12 +3,10 @@ name: Nightly Build
 on:
   push:
     branches: [dev]
-  schedule:
-    - cron: "0 2 * * *"
   workflow_dispatch:
     inputs:
       force_run:
-        description: "Build even if no new commits since last nightly"
+        description: "Force a build even if dev already matches the last nightly (no scheduled builds -- this is the only manual fallback)"
         type: boolean
         default: false
 
