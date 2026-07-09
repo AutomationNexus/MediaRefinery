@@ -2,6 +2,12 @@ name: Promote dev to main
 
 on:
   workflow_dispatch:
+    inputs:
+      bump-type:
+        description: Version bump to apply on promote
+        type: choice
+        options: [patch, minor, major]
+        default: patch
 
 permissions:
   actions: write
@@ -18,6 +24,7 @@ jobs:
     with:
       runner-labels: '["ubuntu-latest"]'
       strip-dev-only-paths: true
+      bump-type: ${{ inputs.bump-type }}
     secrets:
       ci-bot-app-id: ${{ secrets.CI_BOT_APP_ID }}
       ci-bot-app-private-key: ${{ secrets.CI_BOT_APP_PRIVATE_KEY }}
