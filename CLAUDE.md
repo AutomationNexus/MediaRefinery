@@ -14,6 +14,13 @@ Self-hosted Immich review companion: FastAPI backend, React dashboard, SQLite st
 - Start every task with `git status --short --branch` before edits.
 - Never push directly to `dev` or `main`. Feature branch → PR to `dev` → CI green → merge.
   Promote to `main` only via the GitHub Actions **Promote dev to main** workflow.
+- **Auto-versioning**: "Promote dev to main" takes a `bump-type` dispatch input
+  (`patch` default / `minor` / `major`) that computes the next `X.Y.Z` from the
+  latest `vX.Y.Z` tag on `main` and writes it to `pyproject.toml` on the promote
+  branch. Never hand-edit the version yourself.
+- Org-wide CI/PR flow, branch rules, and auto-versioning: see `../CLAUDE.md`
+  (the AutomationNexus GitHub workspace root) — consult it first for anything
+  not covered here, or if CI/promote looks broken.
 
 ## Shell (Windows local dev)
 
