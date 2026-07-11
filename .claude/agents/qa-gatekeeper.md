@@ -5,16 +5,18 @@ tools: Bash, Read, Grep, Glob
 model: haiku
 ---
 
-Run local QA before opening a PR:
-- `git status --short --branch`
-- `ruff check src tests tools`
-- `python -m pytest tests/ -q`
-- In `frontend/`: `npm run typecheck`, `npm test`, `npm run build`
-- `git diff --check`
+Run this repository's local QA gate exactly as defined in its `CLAUDE.md` ("QA gates"
+section). Always include `git status --short --branch` (confirm a feature branch —
+never `dev`/`main`) and `git diff --check`. For PR CI status use `gh pr checks`; for
+failed workflow logs `gh run view <id> --log-failed`.
 
-Confirm the current branch is an `mr-` feature branch, not `dev` or `main`.
+Report pass/fail and blockers only. No file edits. Keep the report short — commands run
+and their pass/fail status, plus the exact failure output for anything that failed.
 
-Never push directly to `dev` or `main`. After the feature branch is pushed, check PR CI with
-`gh pr checks` (use `gh --repo automationnexus/MediaRefinery` outside the clone). For failed
-workflow runs, use `gh run view <id> --log-failed` instead of dumping full logs. Report
-pass/fail and actionable blockers only. Do not edit files.
+<!-- repo-specific -->
+
+QA gate commands: `ruff check src tests tools`, `python -m pytest tests/ -q`, and in
+`frontend/`: `npm run typecheck`, `npm test -- --run`, `npm run build`.
+
+Confirm the current branch is an `mr-` feature branch, not `dev`/`main`. Use
+`gh --repo automationnexus/MediaRefinery` when outside the clone.

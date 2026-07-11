@@ -65,6 +65,12 @@ pipeline — `backend-engineer`/`frontend-engineer` → `qa-gatekeeper` → `rev
 For hard cross-layer conflicts, switch the main session to opus (`/model opus` or
 `opusplan`) rather than a dedicated solver agent.
 
+The 4 core roles (`architect`, `qa-gatekeeper`, `reviewer`, `security-auditor`) are the
+org-standard shared core defined in `automationnexus/.github`'s
+`templates/_shared/.claude/`, with `backend-engineer`/`frontend-engineer` layered on top
+as this repo's domain-specific engineers. For how this team fits into the org-wide agent
+model across repos, see the workspace-root `CLAUDE.md`'s "Agent organization" section.
+
 ## Slash commands
 
 `/execute` (full build pipeline), `/frontend` (frontend-engineer only), `/qa` (QA gate),
