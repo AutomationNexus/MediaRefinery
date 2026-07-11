@@ -3,18 +3,26 @@ description: Execute an approved plan through the expert subagents (implement, Q
 argument-hint: [optional focus notes]
 ---
 
-Run the MediaRefinery execute pipeline for an approved plan: $ARGUMENTS
+Run the build pipeline for an approved plan: $ARGUMENTS
 
 0. If this is a single-file/low-risk change, stop — implement it directly in the main
-   session per CLAUDE.md's risk tiering instead of running this full pipeline.
-1. `git status --short --branch` — confirm an `mr-` feature branch (not `dev`/`main`);
-   create one from updated `dev` if needed.
-2. Dispatch `backend-engineer` to implement/verify Python/FastAPI/Immich changes.
-3. Dispatch `frontend-engineer` when the plan touches `frontend/`.
-4. Dispatch `qa-gatekeeper` for the full `/qa` local gate.
-5. Dispatch `reviewer` for independent review of changed files.
-6. Stop on the first failed gate.
-7. Push the feature branch and open a PR to `dev` (never push directly to `dev` or `main`).
+   session per the CLAUDE.md risk tiering (if defined) instead of running this full
+   pipeline.
+1. Confirm you are on a feature branch off `dev` (never `dev`/`main` directly), using
+   the repo's branch prefix from `CLAUDE.md`.
+2. Dispatch the repo's domain engineer agent(s) for the implementation (see the
+   CLAUDE.md subagent table).
+3. Dispatch `qa-gatekeeper` for the local QA gate.
+4. Dispatch `reviewer` for independent review.
+5. Stop and report on the first failed gate — do not continue past a failure.
+6. Push the feature branch and open a PR to `dev`.
 
-For hard cross-layer conflicts, escalate by switching the main session to opus
-(`/model opus` or `opusplan`) rather than a dedicated solver agent.
+For hard cross-module conflicts or disagreement between subagents, escalate by
+switching the main session to opus (`/model opus` or `opusplan`) rather than a
+dedicated solver agent.
+
+<!-- repo-specific -->
+
+MediaRefinery: use branch prefix `mr-`. Domain engineers are `backend-engineer`
+(`src/mediarefinery/`) and `frontend-engineer` (`frontend/`) — dispatch whichever
+matches the plan's scope (both if it spans layers).

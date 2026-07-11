@@ -3,11 +3,15 @@ description: Follow the CI-gated dev-to-main release workflow.
 argument-hint: [optional notes]
 ---
 
-Follow the MediaRefinery release workflow: $ARGUMENTS
+Run the release workflow: $ARGUMENTS
 
-Confirm local branch/status. Ensure local QA passed or run `/qa` now. Ensure latest `dev`
-has green CI (`gh run list --repo automationnexus/MediaRefinery --branch dev --limit 5`,
-`gh run view <id> --log-failed` for failures). Promote `dev` to `main` only through the
-**Promote dev to main** GitHub Actions workflow unless the user explicitly approves the
-documented manual fallback. Tag only when the user requests it. Never push directly to
-`dev`/`main`.
+Confirm local QA passed or run `/qa`. Ensure the latest `dev` on GitHub has green CI.
+Promote `dev` to `main` only via the **Promote dev to main** GitHub Actions workflow
+(choose `bump-type` per the change: `patch`/`minor`/`major` — versioned repos only) —
+never push `dev`/`main` directly. Tag only when the user explicitly requests it.
+
+<!-- repo-specific -->
+
+Check `dev` CI status with `gh run list --repo automationnexus/MediaRefinery --branch dev
+--limit 5`; use `gh run view <id> --log-failed` for failures. Never push directly to
+`dev`/`main`; the documented manual fallback requires explicit user approval.
