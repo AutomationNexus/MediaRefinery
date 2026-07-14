@@ -1,6 +1,11 @@
-# CODEOWNERS is optional. Uncomment and adjust when maintainers want
-# automatic review routing.
-#
-# * @your-org/mediarefinery-maintainers
-# /docs/ @your-org/docs
-# /.github/ @your-org/platform
+# Governed by automationnexus/.github governance/registry.yml -- edit ownership there first.
+* @AutomationNexus/automationnexus-app-maintainers
+
+# Security-sensitive paths
+/.github/workflows/ @AutomationNexus/automationnexus-security
+/.claude/settings.json @AutomationNexus/automationnexus-security
+
+# Release/promote paths
+/.github/workflows/promote-dev-to-main.yml @AutomationNexus/automationnexus-release
+/.github/workflows/release.yml @AutomationNexus/automationnexus-release
+/pyproject.toml @AutomationNexus/automationnexus-release
