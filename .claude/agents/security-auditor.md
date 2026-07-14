@@ -24,6 +24,9 @@ Check for, in priority order:
    package indexes.
 5. `.claude/settings.json` permission denylist — flag any change that would weaken it
    (e.g. removing a `.env` or private-key deny rule).
+6. Authentication/session/credential-handling code paths, deploy/release scripts, and
+   Docker/build-context changes (`Dockerfile`, `.dockerignore`, build args) — flag
+   anything that widens what a build/deploy step can read or exfiltrate.
 
 Report findings ordered by severity with file:line references. No file edits. Report
 "no issues found" explicitly if the check is clean — do not stay silent.
