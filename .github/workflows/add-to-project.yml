@@ -1,0 +1,16 @@
+# Adds newly-opened issues/PRs in this repo to the org delivery board (Project #1)
+# via the shared reusable workflow. Complements the scheduled org-project-sync.
+name: Add to project
+
+on:
+  issues:
+    types: [opened, transferred]
+  pull_request:
+    types: [opened]
+
+jobs:
+  add:
+    uses: automationnexus/.github/.github/workflows/add-to-project.yml@v1
+    secrets:
+      ci-bot-app-id: ${{ secrets.CI_BOT_APP_ID }}
+      ci-bot-app-private-key: ${{ secrets.CI_BOT_APP_PRIVATE_KEY }}
