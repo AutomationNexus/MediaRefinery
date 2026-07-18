@@ -22,7 +22,7 @@ A release owner should:
 3. open a release pull request;
 4. wait for CI to pass;
 5. merge through the normal branch protection path;
-6. tag the release with a semantic-version tag such as `2.1.0`;
+6. tag the release with a semantic-version tag such as `vX.Y.Z`;
 7. verify the GitHub Release and GHCR image tags.
 
 ## Security Reports

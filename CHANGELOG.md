@@ -6,6 +6,11 @@ This project follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) an
 
 ## [Unreleased]
 
+### Fixed
+
+- Replaced the hardcoded `2.1.0` version strings in `__init__.py` and the FastAPI app factory with a dynamic lookup against installed package metadata, so the app's reported version always matches `pyproject.toml`/the actual release instead of drifting.
+- Corrected matching stale `2.1.0` references across docs (README, installation, operations, Immich compatibility, local development, maintainers guide) to stop asserting a specific unpublished version, and synced `frontend/package.json`/`package-lock.json`'s version field to the real current version. Note: the frontend version field is a manual, point-in-time sync — it isn't wired into the `bump-type` auto-versioning, which only updates `pyproject.toml`.
+
 ### Documentation
 
 - Reworked the README as a project front door with Docker quick start, first-run workflow, storage notes, and documentation map.

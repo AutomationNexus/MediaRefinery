@@ -1,6 +1,6 @@
 # Immich API Compatibility
 
-Status: `2.1.0` compatibility notes.
+Status: current compatibility notes.
 
 Endpoint shapes were recorded against Immich `2.7.5` on 2026-04-30 and smoke-checked again on 2026-05-10 and 2026-05-11. The service readiness check probes `GET /api/server/version` and, where publicly readable, `GET /api/server/about`, then reports `ok`, `unsupported`, or `fail` compatibility status.
 

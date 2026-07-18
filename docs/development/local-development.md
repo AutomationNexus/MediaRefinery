@@ -142,4 +142,4 @@ Good PRs include:
 
 ## Release Work
 
-Release validation is tracked in [../releases/release-checklist.md](../releases/release-checklist.md). The release workflow publishes GHCR images and GitHub releases on semantic-version tags such as `2.1.0`.
+Release validation is tracked in [../releases/release-checklist.md](../releases/release-checklist.md). The release workflow publishes GHCR images and GitHub releases on semantic-version tags such as `vX.Y.Z`.
