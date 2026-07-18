@@ -1,8 +1,17 @@
 # MediaRefinery Release Checklist
 
-Status: `2.1.0` final release checklist. Do not promote a release until every command below passes or a residual risk is explicitly accepted in release notes.
+> **Note:** the `2.1.0` label throughout this document (including the
+> "2.1.0 Local Results" section below) predates this repo's move to the
+> AutomationNexus org's tag-driven `bump-type` auto-versioning
+> (`promote-dev-to-main.yml`). That release was never captured as a `v2.x`
+> git tag, so it isn't the current shipped version — the dated results
+> below are left unchanged as a historical record. The **Versioning** line
+> right below is also stale: version bumping is no longer manual. See
+> `../../CLAUDE.md` for the current `bump-type` workflow.
 
-**Versioning:** bump `project.version` in `pyproject.toml` before merging `dev` → `main`. `release.yml` tags **`v{project.version}`** on merge (it does not auto-increment from the previous git tag).
+Status: final release checklist. Do not promote a release until every command below passes or a residual risk is explicitly accepted in release notes.
+
+**Versioning (historical, pre-automation):** previously, a release owner bumped `project.version` in `pyproject.toml` before merging `dev` → `main`, and `release.yml` tagged **`v{project.version}`** on merge. This is now automated: `promote-dev-to-main.yml`'s `bump-type` input computes the next version from the latest `vX.Y.Z` tag on `main` and writes it to `pyproject.toml` on the promote branch — never hand-edit the version.
 
 **Dependabot:** monthly grouped minor/patch PRs to `dev` (max 3 per ecosystem). Major bumps are reviewed individually. Use manual `chore/deps-batch` PRs before a release if needed.
 
