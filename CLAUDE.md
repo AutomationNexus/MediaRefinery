@@ -11,6 +11,10 @@ Self-hosted Immich review companion: FastAPI backend, React dashboard, SQLite st
 ## Branch policy
 
 - Feature branch prefix: `mr-`, created from `dev`. Never commit on `dev` or `main` directly.
+- Working a tracked issue: create the branch with `gh issue develop <n> --checkout --name
+  mr-<slug>` instead of a plain `git checkout -b` — it links the branch to the issue
+  (`Issue.linkedBranches`), which is what lets the org Delivery board auto-set Status to
+  **In Progress**.
 - Start every task with `git status --short --branch` before edits.
 - Never push directly to `dev` or `main`. Feature branch → PR to `dev` → CI green → merge.
   Promote to `main` only via the GitHub Actions **Promote dev to main** workflow.
