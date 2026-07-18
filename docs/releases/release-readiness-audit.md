@@ -1,5 +1,14 @@
 # Release Readiness Audit
 
+> **Note:** the `2.1.0` label throughout this document predates this repo's
+> move to the AutomationNexus org's tag-driven `bump-type` auto-versioning
+> (`promote-dev-to-main.yml`). That release was never captured as a
+> `v2.x` git tag, so the automated system has no record of it and the
+> actual current version lives in `pyproject.toml` / the latest `vX.Y.Z`
+> git tag on `main` instead. The verification evidence below is a real,
+> dated record of work that happened and is left unchanged — just don't
+> read `2.1.0` as the current shipped version.
+
 Audit date: 2026-05-10; 2.1.0 refresh: 2026-05-11
 
 Result: **ready for the `2.1.0` public release in this workspace after final CI passes. Maintainers should tag `2.1.0` only after the release branch checks pass.**

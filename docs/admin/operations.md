@@ -47,7 +47,7 @@ Notes:
 - Adult subtype classification is a separate optional model slot. The curated catalog does not ship an act-level model; admins can register a local ONNX profile with explicit output labels, thresholds, preprocessing, and an acknowledgement from the Models tab.
 - Semantic asset search calls Immich `POST /api/search/smart` with the signed-in user's bearer token when the dashboard search mode is `semantic`. Returned Immich assets are mapped back to rows already visible to that MediaRefinery user; unknown or other-user rows are skipped. If Immich Smart Search is missing or unavailable, the response falls back to local metadata/OCR search and labels the source as `metadata_fallback`.
 - Event groups are stored locally from derived analysis metadata. Manual rename, merge, split, remove, and reset operations change only MediaRefinery review state and audit rows; they do not rename Immich albums or move/delete media.
-- Public release images are published by the release workflow on semantic-version tags. For `2.1.0`, the expected stable tags are `2.1.0`, `2.1`, `2`, and `latest`.
+- Public release images are published by the release workflow on semantic-version tags. For a release tagged `vX.Y.Z`, the expected stable image tags are `vX.Y.Z`, `X` (major only), and `latest`.
 
 ## Master Key
 

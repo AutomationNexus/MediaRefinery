@@ -29,7 +29,7 @@ The public product is the web service: a FastAPI backend, React dashboard, SQLit
 
 ## Status
 
-Current release: `2.1.0`.
+Current release: see the [GitHub Releases page](https://github.com/automationnexus/MediaRefinery/releases) for the latest tagged version.
 
 MediaRefinery is ready for self-hosted review workflows, but classification, OCR, subtype labels, and semantic search are probabilistic signals. Treat results as queues for human review, not as final truth.
 
@@ -42,7 +42,7 @@ docker run --rm \
   --name mediarefinery \
   -p 8765:8765 \
   -v mediarefinery_data:/data \
-  ghcr.io/automationnexus/mediarefinery:2.1.0
+  ghcr.io/automationnexus/mediarefinery:latest
 ```
 
 Open `http://localhost:8765`, complete the setup wizard, then set **Immich URL** and **public base URL** in system settings (`config.db` is seeded on first boot under `/data/databases/`).

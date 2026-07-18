@@ -12,6 +12,7 @@ import httpx
 if TYPE_CHECKING:
     from fastapi import FastAPI
 
+from .. import __version__
 from . import auto_scan as _auto_scan
 from . import model_catalog as _catalog
 from . import production as _production
@@ -143,7 +144,7 @@ def create_app(
 
     app = FastAPI(
         title="MediaRefinery",
-        version="2.1.0",
+        version=__version__,
         docs_url=None,
         redoc_url=None,
         openapi_url=f"{API_PREFIX}/openapi.json",
