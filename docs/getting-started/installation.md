@@ -25,7 +25,7 @@ docker run --rm \
   --name mediarefinery \
   -p 8765:8765 \
   -v mediarefinery_data:/data \
-  ghcr.io/automationnexus/mediarefinery:2.1.0
+  ghcr.io/automationnexus/mediarefinery:latest
 ```
 
 Open `http://localhost:8765`. On first boot the service seeds `config.db` with defaults and creates `/data/master.key` if needed. Sign in as admin, then set **Immich URL** and **public base URL** in system settings (or use the API below).
@@ -57,7 +57,7 @@ curl --fail http://127.0.0.1:8765/api/health/ready
 The Compose example builds from the local checkout. To run a published image instead, replace the service `build:` block with:
 
 ```yaml
-image: ghcr.io/automationnexus/mediarefinery:2.1.0
+image: ghcr.io/automationnexus/mediarefinery:latest
 ```
 
 ## Source Install

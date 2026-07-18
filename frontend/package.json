@@ -1,7 +1,7 @@
 {
   "name": "mediarefinery-frontend",
   "private": true,
-  "version": "2.1.0",
+  "version": "0.0.2",
   "type": "module",
   "description": "MediaRefinery service dashboard. Built statics are emitted into src/mediarefinery/web/ and served by FastAPI.",
   "scripts": {
