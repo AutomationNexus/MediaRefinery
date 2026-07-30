@@ -22,7 +22,7 @@ jobs:
   nightly:
     uses: automationnexus/.github/.github/workflows/nightly.yml@v1
     with:
-      runner-labels: '["ubuntu-latest"]'
+      runner-labels: '["linux","x64","k3s","ubuntu-latest"]'
       image-name: automationnexus/mediarefinery
       platforms: linux/amd64
       force_run: ${{ inputs.force_run || false }}

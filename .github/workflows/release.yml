@@ -29,7 +29,7 @@ jobs:
   docker-release:
     uses: automationnexus/.github/.github/workflows/release-docker.yml@v1
     with:
-      runner-labels: '["ubuntu-latest"]'
+      runner-labels: '["linux","x64","k3s","ubuntu-latest"]'
       image-name: automationnexus/mediarefinery
       platforms: linux/amd64
       tag_name: ${{ inputs.tag_name || '' }}

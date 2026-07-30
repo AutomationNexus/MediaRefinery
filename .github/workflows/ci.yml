@@ -19,7 +19,7 @@ jobs:
     with:
       branch-model: main-dev
       main-source-allow-glob: 'sync/publish-main-*'
-      runner-labels: '["ubuntu-latest"]'
+      runner-labels: '["linux","x64","k3s","ubuntu-latest"]'
       python-version: "3.11"
       node-version: "24"
       has-frontend: true
