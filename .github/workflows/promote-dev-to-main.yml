@@ -22,7 +22,7 @@ jobs:
   promote:
     uses: automationnexus/.github/.github/workflows/promote-dev-to-main.yml@v1
     with:
-      runner-labels: '["ubuntu-latest"]'
+      runner-labels: '["linux","x64","k3s","ubuntu-latest"]'
       strip-dev-only-paths: true
       bump-type: ${{ inputs.bump-type }}
     secrets:

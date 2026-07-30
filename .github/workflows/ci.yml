@@ -19,7 +19,7 @@ jobs:
     with:
       branch-model: main-dev
       main-source-allow-glob: 'sync/publish-main-*'
-      runner-labels: '["ubuntu-latest"]'
+      runner-labels: '["linux","x64","k3s","ubuntu-latest"]'
       python-version: "3.11"
       node-version: "24"
       has-frontend: true
@@ -37,6 +37,13 @@ jobs:
         .venv/bin/python -m mediarefinery config validate --config templates/config.preset.sensitive.example.yml &&
         .venv/bin/python -m mediarefinery config validate --config tests/fixtures/config.custom-taxonomy.yml
       e2e-pip-install-cmd: 'pip install -e ".[dev,service]" -r requirements-dev-frontend.txt'
+      # No `--with-deps` (the shared default): that shells out to sudo to apt-get the
+      # browser's OS libs, and the ARC image narrows runner sudo to apt-get/apt/dpkg
+      # only, so it fails with "a terminal is required to read the password". The libs
+      # are already baked into the image, along with a version-matched Chromium at
+      # PLAYWRIGHT_BROWSERS_PATH, so a plain install just finds it. Same override
+      # CognitiveSystems, Uploadarr and ModelDeck already use.
+      e2e-playwright-install-cmd: 'python -m playwright install chromium'
     secrets:
       ci-bot-app-id: ${{ secrets.CI_BOT_APP_ID }}
       ci-bot-app-private-key: ${{ secrets.CI_BOT_APP_PRIVATE_KEY }}
